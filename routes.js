@@ -4,9 +4,9 @@ import authenticateToken from './utilities.js'
 const router = express.Router();
 
 router.post('/create/user', controller.addUser)
-router.get('/fetch/user', controller.getUser)
+router.post('/fetch/user', controller.getUser)
 router.get('/delete/all/user', controller.deleteUsers)
-router.post('/login/user', controller.loginUser)
+router.post('/login/user', authenticateToken, controller.loginUser)
 router.get('/food/data', controller.getFoodData)
 router.get('/food/categories', controller.getFoodCategories)
 router.post('/order/create', authenticateToken, controller.createOrder)

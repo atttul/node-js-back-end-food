@@ -66,11 +66,12 @@ export const loginUser = async (req, res) => {
 export const getUser = async (req, res) => {
     try {
         const id = req.user?.userId;
-        const users = await services.fetchUsers();
+        const body = req.body;
+        const users = await services.fetchUser(body);
         return res.json({
             success: true,
-            message: 'Users detail fetched Successfully',
-            data: users
+            message: 'User detail fetched Successfully',
+            data: users.access_token
         })
     } catch (error) {
         return res.json({

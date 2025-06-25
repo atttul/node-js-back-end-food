@@ -36,8 +36,11 @@ export const getUserLogin = async (userEmail, password) => {
     return loggedInUser;
 }
 
-export const findUsers = async () => {
-    const user = await User.find();
+export const findUser = async (body) => {
+    const user = await User.findOne({
+        email: body.email,
+        password: body.password
+    });
     return user;
 }
 

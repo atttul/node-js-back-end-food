@@ -16,8 +16,8 @@ export const loginUserDetails = async (userEmail, password) => {
     return await dao.getUserLogin(userEmail, password);
 }
 
-export const fetchUsers = async () => {
-    return await dao.findUsers();
+export const fetchUser = async (body) => {
+    return await dao.findUser(body);
 }
 
 export const fetchFoodData = async () => {
