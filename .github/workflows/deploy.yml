@@ -1,0 +1,25 @@
+name: 🚀 Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout Repo
+        uses: actions/checkout@v2
+
+      - name: 📡 Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: 15.207.16.140
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/node-js-back-end-food
+            chmod +x deploy.sh
+            ./deploy.sh
