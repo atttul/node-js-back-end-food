@@ -10,16 +10,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout Repo
+      - name: ⬇️ Checkout Code
         uses: actions/checkout@v2
 
-      - name: 📡 Deploy to EC2
+      - name: 📡 SSH & Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.HOST_IP }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            echo "🔐 Connected to EC2"
             cd /home/ubuntu/node-js-back-end-food
             chmod +x deploy.sh
             ./deploy.sh
