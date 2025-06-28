@@ -7,7 +7,7 @@ export const addUser = async (req, res) => {
     try {
         const { name, password, email, location } = req.body;
         const savedUser = await services.createUser(name, password, email, location);
-
+        console.log("this is controller file I am testing it from pushing the code from the local")
         const accessToken = jwt.sign(
             {
                 userId: savedUser._id
