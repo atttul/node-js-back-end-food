@@ -7,7 +7,7 @@ export const addUser = async (req, res) => {
     try {
         const { name, password, email, location } = req.body;
         const savedUser = await services.createUser(name, password, email, location);
-cons
+
         const accessToken = jwt.sign(
             {
                 userId: savedUser._id
