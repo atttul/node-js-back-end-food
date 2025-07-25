@@ -5,12 +5,13 @@ import { Order } from "./order.js";
 import { Cart } from "./cart.js";
 
 
-export const createUser = async (name, password, email, location) => {
+export const createUser = async (name, password, email, location, phone) => {
     const savedUser = await User.create({
         name,
         password,
         email,
-        location
+        location,
+        phone_number: phone
     })
     return savedUser;
 }
@@ -28,10 +29,36 @@ export const updateUser = async (id, accessToken) => {
     return updatedUser;
 }
 
-export const getUserLogin = async (userEmail, password) => {
+export const getUserByEmail = async (email) => {
+    return await User.findOne({ email });
+};
+
+export const getUserByEmailOtp = async (email, otp) => {
+    return await User.findOne({
+        email: email,
+        login_otp: otp
+    });
+};
+
+export const updateUserOtp = async (phone, otp, expiresAt) => {
+    const updatedUserOtp = await User.updateOne(
+        {
+            phone_number: phone
+        },
+        {
+            $set: {
+                login_otp: otp,
+                otp_expires_at: expiresAt
+            }
+        });
+    return updatedUserOtp?.matchedCount;
+}
+
+export const getUserLogin = async (userEmail, password, phone) => {
     const loggedInUser = await User.findOne({
         email: userEmail,
-        password: password
+        password: password,
+        phone_number: phone
     })
     return loggedInUser;
 }
