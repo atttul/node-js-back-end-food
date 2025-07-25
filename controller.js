@@ -5,9 +5,9 @@ dotenv.config();
 
 export const addUser = async (req, res) => {
     try {
-        const { name, password, email, location } = req.body;
-        const savedUser = await services.createUser(name, password, email, location);
-        console.log("this is controller file I am testing it from pushing the code from the local")
+        const { name, password, email, location, phone } = req.body;
+        const savedUser = await services.createUser(name, password, email, location, phone);
+
         const accessToken = jwt.sign(
             {
                 userId: savedUser._id
@@ -37,11 +37,16 @@ export const addUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
     try {
-        const userId = req.user?.userId;
+        // const userId = req.user?.userId;
         const userEmail = req.body.email;
         const password = req.body.password;
+        const phone = req.body.phone;
 
-        const loginDetails = await services.loginUserDetails(userEmail, password);
+        if (!phone) {
+            return res.status(400).json({ success: false, message: "Phone number is required" });
+        }
+
+        const loginDetails = await services.loginUserDetails(userEmail, password, phone);
 
         if (!loginDetails) {
             return res.json({
@@ -50,10 +55,36 @@ export const loginUser = async (req, res) => {
             })
         }
 
+        const otpSent = await services.sendOtp(phone);
+        if (!otpSent.success) {
+            return res.json({
+                success: false,
+                message: otpSent.message
+            })
+        }
         return res.json({
             success: true,
-            message: `User logged-in Successfully`,
+            message: otpSent.message,
             data: loginDetails
+        })
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `User could not logged-in. ${error}`
+        })
+    }
+}
+
+export const verifyOtp = async (req, res) => {
+    try {
+        const userEmail = req.body.email;
+        const otp = req.body.otp;
+
+        const verifiedUser = await services.verifyOtpUser(userEmail, otp);
+
+        return res.json({
+            success: verifiedUser.success,
+            message: verifiedUser.message,
         })
     } catch (error) {
         return res.json({
