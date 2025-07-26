@@ -22,7 +22,8 @@
     "mongoose": "^8.9.2",
     "node": "^23.5.0",
     "nodemon": "^3.1.9",
-    "sequelize": "^6.37.5"
+    "sequelize": "^6.37.5",
+    "twilio": "^5.8.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
