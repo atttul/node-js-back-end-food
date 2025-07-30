@@ -1,5 +1,9 @@
 import * as services from './services.js'
 import jwt from 'jsonwebtoken';
+import * as razorpay from './razorpay.js'
+import crypto from "crypto";
+import { PaymentStatus } from "./constants.js"; // optional
+import shortid from 'shortid';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -245,3 +249,102 @@ export const deleteCartItem = async (req, res) => {
         })
     }
 }
+
+export const createPaymentOrder = async (req, res) => {
+    try {
+        const amount = req.body.amount;
+
+        const options = {
+            amount: amount * 100, // amount in paise (₹1 = 100)
+            currency: "INR",
+            receipt: shortid.generate(),
+        };
+
+        const order = await razorpay.razorpayInstance.orders.create(options);
+
+        const orderResponse = {
+            orderId: order.id,
+            currency: order.currency,
+            amount: order.amount
+        }
+
+        res.json({
+            success: true,
+            message: 'Order Created Successfully',
+            data: orderResponse,
+        });
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Failed to create order: ${error}`
+        });
+    }
+}
+
+export const verifyPaymentOrder = async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+        const sha = crypto.createHmac("sha256", process.env.RAZORPAY_SECRET);
+        sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+        const digest = sha.digest("hex");
+
+        if (digest === razorpay_signature) {
+            return res.json({
+                success: true,
+                message: "Payment verified"
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid signature"
+            });
+        }
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Failed to verify order: ${error}`
+        });
+    }
+}
+
+export const handleWebhook = async (req, res) => {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    const signature = req.headers['x-razorpay-signature'];
+
+    const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(JSON.stringify(req.body))
+        .digest('hex');
+
+    if (signature === expectedSignature) {
+        let paymentCreated = null;
+        const event = req.body.event;
+        const payload = req.body.payload;
+
+        console.log("✅ Verified Razorpay Webhook:", event);
+
+        // Optional: log or save based on event
+        if (event === 'payment.captured') {
+            const paymentEntity = payload.payment.entity;
+            const userId = "from-frontend-or-webhook"
+            const orderId = paymentEntity.order_id
+            const amount = paymentEntity.amount.toString()
+            const paymentStatus = PaymentStatus.VERIFIED
+            
+            paymentCreated = await services.createPayment(userId, orderId, amount, paymentStatus)
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Webhook verified",
+            data: paymentCreated
+        });
+    } else {
+        console.log("❌ Invalid Razorpay webhook signature");
+        return res.status(400).json({
+            success: false,
+            message: "Invalid webhook signature"
+        });
+    }
+};

@@ -117,3 +117,9 @@ export const deleteCartItem = async (userId, body) => {
     const cartItemDeleted = await dao.deleteCartItem(userId, body);
     return cartItemDeleted;
 }
+
+export const createPayment = async (userId, orderId, amount, paymetStatus) => {
+    const paymentCreated = await dao.createPaymentOrder(userId, orderId, amount, paymetStatus);
+    
+    return paymentCreated;
+}

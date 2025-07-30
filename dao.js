@@ -3,6 +3,7 @@ import { FoodItems } from "./food.js";
 import { FoodCategories } from "./foodCategories.js"
 import { Order } from "./order.js";
 import { Cart } from "./cart.js";
+import { Payment } from "./payments.js";
 
 
 export const createUser = async (name, password, email, location, phone) => {
@@ -163,4 +164,15 @@ export const deleteCartItem = async (userId, body) => {
     )
 
     return deletedCartItem;
+}
+
+
+export const createPaymentOrder = async (userId, orderId, amount, paymetStatus) => {
+    const paymentCreated = await Payment.create({
+        user_id: userId,
+        order_id: orderId,
+        amount: amount,
+        payment: paymetStatus
+    })
+    return paymentCreated;
 }
