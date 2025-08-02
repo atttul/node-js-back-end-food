@@ -22,7 +22,7 @@ export const verifyOtpUser = async (userEmail, otp) => {
     }
 
     const isExpired = otpRecord.otp_expires_at < new Date();
-    const isOtpMatched = otpRecord.login_otp === otp;
+    const isOtpMatched = otpRecord.login_otp === +otp;
 
     const userLoggedIn = !isExpired && isOtpMatched;
     const userLoggedInMessage = userLoggedIn ? "User OTP verified & logged-in Successfully" : "OTP expired or does not match";
