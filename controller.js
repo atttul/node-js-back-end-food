@@ -265,8 +265,8 @@ export const createCashfreeOrder = async (req, res) => {
                 customer_phone: customerPhone,
             },
             order_meta: {
-                return_url: `http://localhost:3000/payment-success?order_id=${orderId}`,
-                notify_url: "https://bf5da4fa8144.ngrok-free.app/api/webhook/cashfree",
+                return_url: `${process.env.FRONTEND_URL}/payment-success?order_id=${orderId}`,
+                notify_url: `${process.env.BACKEND_URL}/api/webhook/cashfree`,
                 payment_methods: "cc,dc,nb,upi",
             },
         };
