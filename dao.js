@@ -4,6 +4,7 @@ import { FoodCategories } from "./foodCategories.js"
 import { Order } from "./order.js";
 import { Cart } from "./cart.js";
 import { Payment } from "./payments.js";
+import { PaymentStatus } from "./constants.js";
 
 
 export const createUser = async (name, password, email, location, phone) => {
@@ -174,5 +175,33 @@ export const createPaymentOrder = async (userId, orderId, amount, paymetStatus) 
         amount: amount,
         payment: paymetStatus
     })
+    return paymentCreated;
+}
+
+export const createPaymentPendingOrder = async (payload) => {
+    const paymentCreated = await Payment.create({
+        order_id: payload.order_id,
+        order_amount: payload.order_amount,
+        customer_id: payload.customer_details.customer_id,
+        customer_name: payload.customer_details.customer_name,
+        customer_email: payload.customer_details.customer_email,
+        customer_phone: payload.customer_details.customer_phone,
+        status: PaymentStatus.PENDING,
+    });
+    return paymentCreated;
+}
+
+export const updatePaymentPendingOrder = async (orderId, paymentStatus, paymentId) => {
+    const paymentCreated = await Payment.updateOne(
+        {
+            order_id: orderId,
+        },
+        {
+            $set: {
+                payment_id: paymentId,
+                status: paymentStatus,
+            }
+        }
+    );
     return paymentCreated;
 }

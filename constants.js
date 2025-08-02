@@ -1,6 +1,6 @@
 export const PaymentStatus = {
     PENDING: '0',
-    IN_REVIEW: '1',
-    VERIFIED: '2',
-    REJECTED: '3'
+    VERIFIED: '1',
+    REJECTED: '2',
+    USER_DROPPED: '3',
 };

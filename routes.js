@@ -15,9 +15,8 @@ router.get('/order/fetch', authenticateToken, controller.getAllOrders)
 router.post('/add/cart/item', authenticateToken, controller.addCartItem)
 router.get('/fetch/cart/items', authenticateToken, controller.getCartItems)
 router.delete('/delete/cart/item', authenticateToken, controller.deleteCartItem)
-router.post('/create/payment/order', controller.createPaymentOrder)
-router.post('/verify/payment/order', controller.verifyPaymentOrder)
-router.post('/webhook/razorpay', express.raw({ type: 'application/json' }), controller.handleWebhook)
-// router.post('/payment/webhook', controller.handleWebhook); // ✅ webhook route
+
+router.post('/create/cashfree/order', controller.createCashfreeOrder);
+
 
 export default router;

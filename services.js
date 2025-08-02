@@ -1,6 +1,7 @@
 import * as dao from './dao.js';
 import bcrypt from 'bcrypt';
 import { twilioClient, twilioSender } from './twilio.js';
+import { PaymentStatus } from './constants.js';
 
 export const createUser = async (name, password, email, location, phone) => {
     // const hashedPassword = await bcrypt.hash(password, 10);
@@ -120,6 +121,29 @@ export const deleteCartItem = async (userId, body) => {
 
 export const createPayment = async (userId, orderId, amount, paymetStatus) => {
     const paymentCreated = await dao.createPaymentOrder(userId, orderId, amount, paymetStatus);
-    
     return paymentCreated;
 }
+
+export const createPaymentOrder = async (payload) => {
+    const paymentVerified = await dao.createPaymentPendingOrder(payload);
+    return paymentVerified;
+}
+
+export const handleCashfreeWebhook = async (payload, signature) => {
+    // const secret = process.env.CASHFREE_CLIENT_SECRET;
+
+    if (payload.type === "PAYMENT_SUCCESS_WEBHOOK") {
+        await dao.updatePaymentPendingOrder(payload.data.order?.order_id, PaymentStatus.VERIFIED, payload.data.payment_gateway_details?.gateway_payment_id);
+    }
+
+    else if (payload.type === "PAYMENT_FAILED_WEBHOOK") {
+        await dao.updatePaymentPendingOrder(payload.data.order?.order_id, PaymentStatus.REJECTED, payload.data.payment_gateway_details?.gateway_payment_id);
+    }
+
+    else if (payload.type === "PAYMENT_USER_DROPPED_WEBHOOK") {
+        await dao.updatePaymentPendingOrder(payload.data.order?.order_id, PaymentStatus.USER_DROPPED, payload.data.payment_gateway_details?.gateway_payment_id);
+    }
+
+    return true
+};
+

@@ -1,9 +1,8 @@
 import * as services from './services.js'
 import jwt from 'jsonwebtoken';
-import * as razorpay from './razorpay.js'
-import crypto from "crypto";
-import { PaymentStatus } from "./constants.js"; // optional
-import shortid from 'shortid';
+import axios from 'axios';
+import * as cashfreePg from 'cashfree-pg';
+const { Cashfree, CFEnvironment } = cashfreePg;
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -250,101 +249,85 @@ export const deleteCartItem = async (req, res) => {
     }
 }
 
-export const createPaymentOrder = async (req, res) => {
+export const createCashfreeOrder = async (req, res) => {
     try {
-        const amount = req.body.amount;
+        const { orderAmount, customerName, customerId, customerEmail, customerPhone } = req.body;
 
-        const options = {
-            amount: amount * 100, // amount in paise (₹1 = 100)
-            currency: "INR",
-            receipt: shortid.generate(),
+        const orderId = "order_" + Date.now()
+        const payload = {
+            order_id: orderId,
+            order_amount: orderAmount,
+            order_currency: "INR",
+            customer_details: {
+                customer_id: customerId,
+                customer_name: customerName,
+                customer_email: customerEmail,
+                customer_phone: customerPhone,
+            },
+            order_meta: {
+                return_url: `http://localhost:3000/payment-success?order_id=${orderId}`,
+                notify_url: "https://bf5da4fa8144.ngrok-free.app/api/webhook/cashfree",
+                payment_methods: "cc,dc,nb,upi",
+            },
         };
 
-        const order = await razorpay.razorpayInstance.orders.create(options);
+        // const response = await cashfree.PGcreateOrder(payload);
 
-        const orderResponse = {
-            orderId: order.id,
-            currency: order.currency,
-            amount: order.amount
+        const response = await axios.post('https://sandbox.cashfree.com/pg/orders',
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-version': '2025-01-01',
+                    'x-client-id': process.env.CASHFREE_CLIENT_ID,
+                    'x-client-secret': process.env.CASHFREE_CLIENT_SECRET,
+                }
+            }
+        );
+
+        if (response.data) {
+            await services.createPaymentOrder(payload);
         }
 
-        res.json({
+        return res.json({
             success: true,
-            message: 'Order Created Successfully',
-            data: orderResponse,
+            message: 'Cashfree Order Created Successfully',
+            orderId: orderId,
+            sessionId: response.data.payment_session_id,
+            data: response.data
         });
+
     } catch (error) {
         return res.json({
             success: false,
-            message: `Failed to create order: ${error}`
+            message: `Cashfree order failed : ${error?.response?.data?.message || error.message}`
         });
     }
-}
+};
 
-export const verifyPaymentOrder = async (req, res) => {
+export const cashfreeWebhookHandler = async (req, res) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+        const rawBody = req.body.toString('utf8');
+        const payload = JSON.parse(rawBody);
+        const signature = req.headers['x-cf-signature'];
 
-        const sha = crypto.createHmac("sha256", process.env.RAZORPAY_SECRET);
-        sha.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-        const digest = sha.digest("hex");
+        // Verify webhook signature
+        const isValid = await services.handleCashfreeWebhook(payload, signature);
 
-        if (digest === razorpay_signature) {
-            return res.json({
-                success: true,
-                message: "Payment verified"
-            });
-        } else {
-            return res.status(400).json({
+        if (!isValid) {
+            return res.status(401).json({
                 success: false,
-                message: "Invalid signature"
+                message: 'Invalid signature'
             });
         }
+
+        return res.status(200).json({ success: true });
+
     } catch (error) {
-        return res.json({
+        console.error('Webhook Error:', error);
+        return res.status(500).json({
             success: false,
-            message: `Failed to verify order: ${error}`
-        });
-    }
-}
-
-export const handleWebhook = async (req, res) => {
-    const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-    const signature = req.headers['x-razorpay-signature'];
-
-    const expectedSignature = crypto
-        .createHmac('sha256', secret)
-        .update(JSON.stringify(req.body))
-        .digest('hex');
-
-    if (signature === expectedSignature) {
-        let paymentCreated = null;
-        const event = req.body.event;
-        const payload = req.body.payload;
-
-        console.log("✅ Verified Razorpay Webhook:", event);
-
-        // Optional: log or save based on event
-        if (event === 'payment.captured') {
-            const paymentEntity = payload.payment.entity;
-            const userId = "from-frontend-or-webhook"
-            const orderId = paymentEntity.order_id
-            const amount = paymentEntity.amount.toString()
-            const paymentStatus = PaymentStatus.VERIFIED
-            
-            paymentCreated = await services.createPayment(userId, orderId, amount, paymentStatus)
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: "Webhook verified",
-            data: paymentCreated
-        });
-    } else {
-        console.log("❌ Invalid Razorpay webhook signature");
-        return res.status(400).json({
-            success: false,
-            message: "Invalid webhook signature"
+            message: error.message
         });
     }
 };
