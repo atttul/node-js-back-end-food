@@ -16,6 +16,9 @@ app.post('/api/webhook/cashfree', express.raw({ type: 'application/json' }), con
 app.use(express.json())
 
 app.use('/api', userRouter);
+app.get('/', (req, res) => {
+    res.send('Welcome to the Food Delivery API');
+});
 
 
 app.listen(port, () => {
