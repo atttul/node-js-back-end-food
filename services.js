@@ -44,7 +44,7 @@ export const sendOtp = async (phone) => {
 
     // Send via SMS
     const message = await twilioClient.messages.create({
-        body: `Your login OTP is ${otp}. It will expire in 5 minutes.`,
+        body: `${otp} is your login OTP. It will expire in 5 minutes.`,
         from: twilioSender,
         to: `+91${phone}`  // or format according to international rules
     });
