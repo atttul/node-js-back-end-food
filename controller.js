@@ -271,8 +271,6 @@ export const createCashfreeOrder = async (req, res) => {
             },
         };
 
-        // const response = await cashfree.PGcreateOrder(payload);
-
         const response = await axios.post('https://sandbox.cashfree.com/pg/orders',
             payload,
             {
