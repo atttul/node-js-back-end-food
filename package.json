@@ -28,7 +28,8 @@
     "razorpay": "^2.9.6",
     "sequelize": "^6.37.5",
     "shortid": "^2.2.17",
-    "twilio": "^5.8.0"
+    "twilio": "^5.8.0",
+    "vercel": "^44.6.6"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
