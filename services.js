@@ -2,6 +2,7 @@ import * as dao from './dao.js';
 import bcrypt from 'bcrypt';
 import { twilioClient, twilioSender } from './twilio.js';
 import { PaymentStatus } from './constants.js';
+import axios from 'axios';
 
 export const createUser = async (name, password, email, location, phone) => {
     // const hashedPassword = await bcrypt.hash(password, 10);
@@ -15,46 +16,61 @@ export const updateUser = async (id, accessToken) => {
 }
 
 export const verifyOtpUser = async (userEmail, otp) => {
-    const otpRecord = await dao.getUserByEmailOtp(userEmail, otp);
+    const otpRecord = await dao.getUserByEmailOtp(userEmail);
 
     if (!otpRecord) {
-        return { success: false, message: 'Invalid OTP or user email not found' };
+        return { 
+            success: false,
+            message: 'Invalid OTP or user email not found' 
+        };
     }
 
+    // 1. Check if OTP is expired
     const isExpired = otpRecord.otp_expires_at < new Date();
-    const isOtpMatched = otpRecord.login_otp === +otp;
+    if (isExpired) {
+        return { 
+            success: false,
+            message: 'OTP has expired' 
+        };
+    }
+    // 2. Verify via 2Factor API
+    const verifyResponse = await axios.get(`https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/VERIFY/${otpRecord.session_id}/${otp}`);
+    
+    // 3. Check verification status
+    if (verifyResponse.data.Status !== "Success") {
+        return { 
+            success: false, 
+            message: "Invalid OTP",
+            data: otpRecord
+        };
+    }
 
-    const userLoggedIn = !isExpired && isOtpMatched;
-    const userLoggedInMessage = userLoggedIn ? "User OTP verified & logged-in Successfully" : "OTP expired or does not match";
     return {
-        success: userLoggedIn,
-        message: userLoggedInMessage
+        success: true,
+        message: 'User OTP verified & logged-in Successfully',
+        data: otpRecord
     }
 };
 
 export const sendOtp = async (phone) => {
-    const otp = Math.floor(100000 + Math.random() * 900000);
+    const otp = Math.floor(1000 + Math.random() * 9000);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // valid for 5 minutes
+    
+    const response = await axios.post(`https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${phone}/${otp}`)
 
     // Save to DB
-    const userOtpUpdatedCount = await dao.updateUserOtp(phone, otp, expiresAt);
+    const userOtpUpdatedCount = await dao.updateUserOtp(phone, otp, expiresAt, response.data.Details);
     if (userOtpUpdatedCount === 0) {
         return { success: false, message: 'Failed to update OTP in db' };
     }
 
-    // Send via SMS
-    const message = await twilioClient.messages.create({
-        body: `${otp} is your login OTP. It will expire in 5 minutes.`,
-        from: twilioSender,
-        to: `+91${phone}`  // or format according to international rules
-    });
 
-    return {
-        success: true,
-        message: 'OTP sent via SMS',
-        sid: message.sid,
-        twilio_message: message
-    };
+    // const response = await client.messages.create({
+    //     body: `Your OTP is: ${otp}`,
+    //     from: `whatsapp:${process.env.TWILIO_WHATSAPP_PHONE_NUMBER}`,
+    //     to: `whatsapp:+91${phone}`
+    // });
+    return response;
 };
 
 export const loginUserDetails = async (userEmail, password, phone) => {
@@ -124,8 +140,8 @@ export const createPayment = async (userId, orderId, amount, paymetStatus) => {
     return paymentCreated;
 }
 
-export const createPaymentOrder = async (payload) => {
-    const paymentVerified = await dao.createPaymentPendingOrder(payload);
+export const createPaymentOrder = async (userId, payload, orderAddress) => {
+    const paymentVerified = await dao.createPaymentPendingOrder(userId, payload, orderAddress);
     return paymentVerified;
 }
 

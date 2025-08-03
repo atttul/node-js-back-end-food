@@ -12,6 +12,7 @@ const paymentSchema = new Schema(
         customer_name: { type: String, required: true },
         customer_email: { type: String, required: true },
         customer_phone: { type: String, required: true },
+        order_address: { type: String, required: false },
         status: {
             type: String, required: true,
             enum: [PaymentStatus.PENDING, PaymentStatus.IN_REVIEW, PaymentStatus.VERIFIED, PaymentStatus.REJECTED],

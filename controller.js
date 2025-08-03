@@ -59,15 +59,15 @@ export const loginUser = async (req, res) => {
         }
 
         const otpSent = await services.sendOtp(phone);
-        if (!otpSent.success) {
+        if (!otpSent.status) {
             return res.json({
                 success: false,
-                message: otpSent.message
+                message: `OTP could not sent. otpSent.status is ${otpSent.status}`,
             })
         }
         return res.json({
             success: true,
-            message: otpSent.message,
+            message: 'OTP sent to your phone',
             data: loginDetails
         })
     } catch (error) {
@@ -88,6 +88,7 @@ export const verifyOtp = async (req, res) => {
         return res.json({
             success: verifiedUser.success,
             message: verifiedUser.message,
+            data: verifiedUser.data
         })
     } catch (error) {
         return res.json({
@@ -105,7 +106,8 @@ export const getUser = async (req, res) => {
         return res.json({
             success: true,
             message: 'User detail fetched Successfully',
-            data: users.access_token
+            data: users.access_token,
+            user: users
         })
     } catch (error) {
         return res.json({
@@ -251,7 +253,7 @@ export const deleteCartItem = async (req, res) => {
 
 export const createCashfreeOrder = async (req, res) => {
     try {
-        const { orderAmount, customerName, customerId, customerEmail, customerPhone } = req.body;
+        const { userId, orderAmount, customerName, customerId, customerEmail, customerPhone, orderAddress } = req.body;
 
         const orderId = "order_" + Date.now()
         const payload = {
@@ -284,7 +286,7 @@ export const createCashfreeOrder = async (req, res) => {
         );
 
         if (response.data) {
-            await services.createPaymentOrder(payload);
+            await services.createPaymentOrder(userId, payload, orderAddress);
         }
 
         return res.json({

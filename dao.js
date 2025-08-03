@@ -35,14 +35,13 @@ export const getUserByEmail = async (email) => {
     return await User.findOne({ email });
 };
 
-export const getUserByEmailOtp = async (email, otp) => {
+export const getUserByEmailOtp = async (email) => {
     return await User.findOne({
         email: email,
-        login_otp: otp
     });
 };
 
-export const updateUserOtp = async (phone, otp, expiresAt) => {
+export const updateUserOtp = async (phone, otp, expiresAt, sessionId) => {
     const updatedUserOtp = await User.updateOne(
         {
             phone_number: phone
@@ -50,7 +49,8 @@ export const updateUserOtp = async (phone, otp, expiresAt) => {
         {
             $set: {
                 login_otp: otp,
-                otp_expires_at: expiresAt
+                otp_expires_at: expiresAt,
+                session_id: sessionId
             }
         });
     return updatedUserOtp?.matchedCount;
@@ -178,14 +178,16 @@ export const createPaymentOrder = async (userId, orderId, amount, paymetStatus) 
     return paymentCreated;
 }
 
-export const createPaymentPendingOrder = async (payload) => {
+export const createPaymentPendingOrder = async (userId, payload, orderAddress) => {
     const paymentCreated = await Payment.create({
+        user_id: userId,
         order_id: payload.order_id,
         order_amount: payload.order_amount,
         customer_id: payload.customer_details.customer_id,
         customer_name: payload.customer_details.customer_name,
         customer_email: payload.customer_details.customer_email,
         customer_phone: payload.customer_details.customer_phone,
+        order_address: orderAddress,
         status: PaymentStatus.PENDING,
     });
     return paymentCreated;
