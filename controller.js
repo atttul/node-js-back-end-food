@@ -54,7 +54,7 @@ export const loginUser = async (req, res) => {
         if (!loginDetails) {
             return res.json({
                 success: false,
-                message: `User invalid credential`
+                message: `User invalid credential, please provide valid Email, Password and Phone Number`
             })
         }
 
