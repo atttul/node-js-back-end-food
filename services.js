@@ -56,7 +56,7 @@ export const sendOtp = async (phone) => {
     const otp = Math.floor(1000 + Math.random() * 9000);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // valid for 5 minutes
     
-    const response = await axios.post(`https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${phone}/${otp}`)
+    const response = await axios.post(`https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${phone}/${otp}/MernDine`)
 
     // Save to DB
     const userOtpUpdatedCount = await dao.updateUserOtp(phone, otp, expiresAt, response.data.Details);
