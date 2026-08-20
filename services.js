@@ -146,8 +146,6 @@ export const createPaymentOrder = async (userId, payload, orderAddress) => {
 }
 
 export const handleCashfreeWebhook = async (payload, signature) => {
-    // const secret = process.env.CASHFREE_CLIENT_SECRET;
-
     if (payload.type === "PAYMENT_SUCCESS_WEBHOOK") {
         await dao.updatePaymentPendingOrder(payload.data.order?.order_id, PaymentStatus.VERIFIED, payload.data.payment_gateway_details?.gateway_payment_id);
     }
@@ -162,4 +160,67 @@ export const handleCashfreeWebhook = async (payload, signature) => {
 
     return true
 };
+
+export const getOrderTrackingDetails = async (orderId) => {
+    let order = null;
+    if (orderId && orderId !== 'undefined' && orderId !== 'null') {
+        try {
+            order = await dao.getOrderById(orderId);
+        } catch (e) {
+            console.error("Order lookup error:", e);
+        }
+    }
+
+    const createdTime = order?.created_at ? new Date(order.created_at).getTime() : Date.now();
+    const elapsedSeconds = Math.floor((Date.now() - createdTime) / 1000);
+    const estimatedMinutes = order?.estimated_delivery_minutes || 30;
+    const totalDurationSeconds = estimatedMinutes * 60;
+    const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds);
+    const progressPercentage = Math.min(100, Math.floor((elapsedSeconds / totalDurationSeconds) * 100));
+
+    const restaurantCoords = order?.restaurant_coords || { lat: 28.6315, lng: 77.2167, name: 'Mern Dine Central Kitchen' };
+    const userCoords = order?.user_coords || { lat: 28.6139, lng: 77.2090 };
+
+    const fraction = progressPercentage / 100;
+    const currentRiderLat = restaurantCoords.lat + (userCoords.lat - restaurantCoords.lat) * fraction;
+    const currentRiderLng = restaurantCoords.lng + (userCoords.lng - restaurantCoords.lng) * fraction;
+
+    let computedStatus = order?.order_status || 'PLACED';
+    if (progressPercentage >= 100) {
+        computedStatus = 'DELIVERED';
+    } else if (progressPercentage >= 40) {
+        computedStatus = 'OUT_FOR_DELIVERY';
+    } else if (progressPercentage >= 15) {
+        computedStatus = 'PREPARING';
+    }
+
+    return {
+        orderId: order?._id || orderId || 'demo_order_123',
+        product_name: order?.product_name || 'Food Order',
+        total_amount: order?.total_amount || 0,
+        size: order?.size || '',
+        quantity: order?.quantity || 1,
+        created_at: order?.created_at || new Date(),
+        estimated_delivery_minutes: estimatedMinutes,
+        remaining_seconds: remainingSeconds,
+        progress_percentage: progressPercentage,
+        status: computedStatus,
+        restaurant_coords: restaurantCoords,
+        user_coords: userCoords,
+        rider_current_coords: {
+            lat: Number(currentRiderLat.toFixed(6)),
+            lng: Number(currentRiderLng.toFixed(6))
+        },
+        rider_details: order?.rider_details || {
+            name: 'Rajesh Kumar',
+            phone: '9876543210',
+            vehicle: 'TVS Apache (DL 01 AB 4321)'
+        }
+    };
+};
+
+export const updateOrderStatus = async (orderId, status) => {
+    return await dao.updateOrderStatus(orderId, status);
+};
+
 

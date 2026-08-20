@@ -18,5 +18,8 @@ router.delete('/delete/cart/item', authenticateToken, controller.deleteCartItem)
 
 router.post('/create/cashfree/order', controller.createCashfreeOrder);
 
+router.get('/order/track/:orderId', controller.trackOrder);
+router.get('/order/track', controller.trackOrder);
+router.post('/order/update-status', controller.updateOrderStatus);
 
 export default router;
