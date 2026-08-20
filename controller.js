@@ -331,3 +331,38 @@ export const cashfreeWebhookHandler = async (req, res) => {
         });
     }
 };
+
+export const trackOrder = async (req, res) => {
+    try {
+        const orderId = req.params.orderId || req.query.orderId;
+        const trackingDetails = await services.getOrderTrackingDetails(orderId);
+        return res.json({
+            success: true,
+            message: 'Order tracking details fetched successfully',
+            data: trackingDetails
+        });
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Order tracking failed: ${error.message}`
+        });
+    }
+};
+
+export const updateOrderStatus = async (req, res) => {
+    try {
+        const { orderId, status } = req.body;
+        const result = await services.updateOrderStatus(orderId, status);
+        return res.json({
+            success: true,
+            message: 'Order status updated successfully',
+            data: result
+        });
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Order status update failed: ${error.message}`
+        });
+    }
+};
+

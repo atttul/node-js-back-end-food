@@ -104,14 +104,30 @@ export const createOrder = async (userId, body, totalPrice) => {
         quantity: body.qty,
         size: body.size,
         total_amount: totalPrice,
+        created_at: new Date(),
+        estimated_delivery_minutes: 30,
+        order_status: 'PLACED'
     })
     return orderCreated;
+}
+
+export const getOrderById = async (orderId) => {
+    const order = await Order.findById(orderId);
+    return order;
+}
+
+export const updateOrderStatus = async (orderId, status) => {
+    const updated = await Order.updateOne(
+        { _id: orderId },
+        { $set: { order_status: status } }
+    );
+    return updated;
 }
 
 export const getAllOrders = async (userId) => {
     const allOrders = await Order.find({
         user_id: userId
-    })
+    }).sort({ created_at: -1 });
     return allOrders;
 }
 
