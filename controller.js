@@ -98,6 +98,45 @@ export const verifyOtp = async (req, res) => {
     }
 }
 
+export const forgotPasswordRequest = async (req, res) => {
+    try {
+        const { email, phone } = req.body;
+        if (!email || !phone) {
+            return res.json({
+                success: false,
+                message: "Please provide both Email Address and Phone Number."
+            });
+        }
+        const result = await services.requestForgotPasswordOtp(email, phone);
+        return res.json(result);
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Forgot password request failed: ${error.message || error}`
+        });
+    }
+};
+
+export const forgotPasswordReset = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+        if (!email || !otp || !newPassword) {
+            return res.json({
+                success: false,
+                message: "Please provide Email Address, OTP code, and New Password."
+            });
+        }
+        const result = await services.resetPasswordWithOtp(email, otp, newPassword);
+        return res.json(result);
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Password reset failed: ${error.message || error}`
+        });
+    }
+};
+
+
 export const getUser = async (req, res) => {
     try {
         const id = req.user?.userId;

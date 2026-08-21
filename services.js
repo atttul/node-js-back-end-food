@@ -77,6 +77,46 @@ export const loginUserDetails = async (userEmail, password, phone) => {
     return await dao.getUserLogin(userEmail, password, phone);
 }
 
+export const requestForgotPasswordOtp = async (email, phone) => {
+    const user = await dao.findUserByEmailAndPhone(email, phone);
+    if (!user) {
+        return {
+            success: false,
+            message: 'No account found matching this Email Address and Phone Number.'
+        };
+    }
+    const otpResponse = await sendOtp(phone);
+    if (!otpResponse.status && otpResponse.data?.Status !== "Success") {
+        return {
+            success: false,
+            message: 'Failed to send OTP to your registered phone number.'
+        };
+    }
+    return {
+        success: true,
+        message: 'Password reset OTP code sent successfully to your phone.'
+    };
+};
+
+export const resetPasswordWithOtp = async (email, otp, newPassword) => {
+    const verification = await verifyOtpUser(email, otp);
+    if (!verification.success) {
+        return verification;
+    }
+    const updateResult = await dao.updateUserPassword(email, newPassword);
+    if (updateResult.modifiedCount === 0 && updateResult.matchedCount === 0) {
+        return {
+            success: false,
+            message: 'User account not found for password update.'
+        };
+    }
+    return {
+        success: true,
+        message: 'Password has been reset successfully! You can now log in with your new password.'
+    };
+};
+
+
 export const fetchUser = async (body) => {
     return await dao.findUser(body);
 }

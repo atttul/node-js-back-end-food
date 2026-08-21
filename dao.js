@@ -65,6 +65,21 @@ export const getUserLogin = async (userEmail, password, phone) => {
     return loggedInUser;
 }
 
+export const findUserByEmailAndPhone = async (email, phone) => {
+    return await User.findOne({
+        email: email,
+        phone_number: phone
+    });
+};
+
+export const updateUserPassword = async (email, newPassword) => {
+    const updated = await User.updateOne(
+        { email: email },
+        { $set: { password: newPassword } }
+    );
+    return updated;
+};
+
 export const findUser = async (body) => {
     const user = await User.findOne({
         email: body.email,
@@ -72,6 +87,7 @@ export const findUser = async (body) => {
     });
     return user;
 }
+
 
 
 export const deleteAllUsers = async () => {
