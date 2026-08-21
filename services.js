@@ -77,6 +77,11 @@ export const loginUserDetails = async (userEmail, password, phone) => {
     return await dao.getUserLogin(userEmail, password, phone);
 }
 
+export const findUserByPhone = async (phone) => {
+    return await dao.getUserByPhone(phone);
+}
+
+
 export const requestForgotPasswordOtp = async (email, phone) => {
     const user = await dao.findUserByEmailAndPhone(email, phone);
     if (!user) {

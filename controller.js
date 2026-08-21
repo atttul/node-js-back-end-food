@@ -40,41 +40,60 @@ export const addUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
     try {
-        // const userId = req.user?.userId;
         const userEmail = req.body.email;
         const password = req.body.password;
         const phone = req.body.phone;
+        const loginType = req.body.loginType || (phone && !password ? 'otp' : 'password');
 
-        if (!phone) {
-            return res.status(400).json({ success: false, message: "Phone number is required" });
+        // Mode 1: Mobile Number & OTP Login
+        if (loginType === 'otp' || (phone && !password && !userEmail)) {
+            if (!phone) {
+                return res.json({ success: false, message: "Please enter your 10-digit mobile number." });
+            }
+            const existingUser = await services.findUserByPhone(phone);
+            if (!existingUser) {
+                return res.json({
+                    success: false,
+                    message: "No account registered with this Phone Number. Please create an account first."
+                });
+            }
+            const otpSent = await services.sendOtp(phone);
+            return res.json({
+                success: true,
+                message: 'OTP code sent to your registered phone number',
+                data: existingUser
+            });
         }
 
-        const loginDetails = await services.loginUserDetails(userEmail, password, phone);
+        // Mode 2: Email & Password Login
+        if (!userEmail || !password) {
+            return res.json({ success: false, message: "Please enter both Email Address and Password." });
+        }
+
+        const loginDetails = await services.fetchUser({ email: userEmail, password: password });
 
         if (!loginDetails) {
             return res.json({
                 success: false,
-                message: `User invalid credential, please provide valid Email, Password and Phone Number`
-            })
+                message: "Invalid Email Address or Password. Please check your credentials and try again."
+            });
         }
 
-        const otpSent = await services.sendOtp(phone);
-        if (!otpSent.status) {
-            return res.json({
-                success: false,
-                message: `OTP could not sent. otpSent.status is ${otpSent.status}`,
-            })
+        const targetPhone = phone || loginDetails.phone_number;
+        if (targetPhone) {
+            await services.sendOtp(targetPhone);
         }
+
         return res.json({
             success: true,
-            message: 'OTP sent to your phone',
+            message: 'Credentials verified! OTP sent to your phone for login.',
             data: loginDetails
-        })
+        });
     } catch (error) {
         return res.json({
             success: false,
-            message: `User could not logged-in. ${error}`
-        })
+            message: `Login process failed. Please check your details and try again.`
+        });
     }
 }
 
@@ -139,22 +158,28 @@ export const forgotPasswordReset = async (req, res) => {
 
 export const getUser = async (req, res) => {
     try {
-        const id = req.user?.userId;
         const body = req.body;
         const users = await services.fetchUser(body);
+        if (!users) {
+            return res.json({
+                success: false,
+                message: "Invalid Email Address or Password. Please check your credentials and try again."
+            });
+        }
         return res.json({
             success: true,
-            message: 'User detail fetched Successfully',
+            message: 'User details fetched successfully',
             data: users.access_token,
             user: users
-        })
+        });
     } catch (error) {
         return res.json({
             success: false,
-            message: `Users detail could not found. ${error}`
-        })
+            message: 'User details could not be found. Please check your credentials.'
+        });
     }
 }
+
 
 export const deleteUsers = async (req, res) => {
     try {

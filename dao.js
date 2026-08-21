@@ -35,11 +35,16 @@ export const getUserByEmail = async (email) => {
     return await User.findOne({ email });
 };
 
+export const getUserByPhone = async (phone) => {
+    return await User.findOne({ phone_number: phone });
+};
+
 export const getUserByEmailOtp = async (email) => {
     return await User.findOne({
         email: email,
     });
 };
+
 
 export const updateUserOtp = async (phone, otp, expiresAt, sessionId) => {
     const updatedUserOtp = await User.updateOne(
