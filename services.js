@@ -5,10 +5,29 @@ import { PaymentStatus } from './constants.js';
 import axios from 'axios';
 
 export const createUser = async (name, password, email, location, phone) => {
-    // const hashedPassword = await bcrypt.hash(password, 10);
+    if (email) {
+        const existingEmail = await dao.getUserByEmail(email);
+        if (existingEmail) {
+            return {
+                alreadyExists: true,
+                message: 'An account with this Email Address already exists. If you forgot your password, please reset it using Forgot Password.'
+            };
+        }
+    }
+    if (phone) {
+        const existingPhone = await dao.getUserByPhone(phone);
+        if (existingPhone) {
+            return {
+                alreadyExists: true,
+                message: 'An account with this Mobile Number already exists. If you forgot your password, please reset it using Forgot Password.'
+            };
+        }
+    }
+
     const createdUser = await dao.createUser(name, password, email, location, phone);
     return createdUser;
 }
+
 
 export const updateUser = async (id, accessToken) => {
     const updatedUser = await dao.updateUser(id, accessToken);

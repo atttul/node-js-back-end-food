@@ -11,32 +11,42 @@ export const addUser = async (req, res) => {
         const { name, password, email, location, phone } = req.body;
         const savedUser = await services.createUser(name, password, email, location, phone);
 
+        if (savedUser && savedUser.alreadyExists) {
+            return res.json({
+                success: false,
+                alreadyExists: true,
+                message: savedUser.message
+            });
+        }
+
         const accessToken = jwt.sign(
             {
                 userId: savedUser._id
             },
-            process.env.SECRET_KEY || '',
-            // {
-            //     expiresIn: "72h" // for never expire token I have commented this line
-            // }
+            process.env.SECRET_KEY || ''
         );
         const updated = await services.updateUser(savedUser._id, accessToken);
 
-        savedUser.access_token = accessToken
+        savedUser.access_token = accessToken;
         return res.json({
             success: true,
             message: 'User created successfully',
             accessToken,
             data: savedUser,
             updated: updated,
-        })
+        });
     } catch (error) {
+        const isDuplicate = String(error).includes('E11000') || String(error).includes('duplicate');
         return res.json({
             success: false,
-            message: `User did not create successfully. ${error}`
-        })
+            alreadyExists: isDuplicate,
+            message: isDuplicate 
+                ? 'An account with this Email Address or Mobile Number already exists. Please sign in or reset your password.' 
+                : `User creation failed: ${error.message || error}`
+        });
     }
-}
+};
+
 
 export const loginUser = async (req, res) => {
     try {
