@@ -100,22 +100,24 @@ export const loginUser = async (req, res) => {
 export const verifyOtp = async (req, res) => {
     try {
         const userEmail = req.body.email;
+        const phone = req.body.phone;
         const otp = req.body.otp;
 
-        const verifiedUser = await services.verifyOtpUser(userEmail, otp);
+        const verifiedUser = await services.verifyOtpUser(userEmail, otp, phone);
 
         return res.json({
             success: verifiedUser.success,
             message: verifiedUser.message,
             data: verifiedUser.data
-        })
+        });
     } catch (error) {
         return res.json({
             success: false,
-            message: `User could not logged-in. ${error}`
-        })
+            message: `OTP verification failed. ${error.message || error}`
+        });
     }
-}
+};
+
 
 export const forgotPasswordRequest = async (req, res) => {
     try {

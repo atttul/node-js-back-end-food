@@ -45,6 +45,19 @@ export const getUserByEmailOtp = async (email) => {
     });
 };
 
+export const getUserByEmailOrPhoneOtp = async (email, phone) => {
+    if (email) {
+        const userByEmail = await User.findOne({ email });
+        if (userByEmail) return userByEmail;
+    }
+    if (phone) {
+        const userByPhone = await User.findOne({ phone_number: phone });
+        if (userByPhone) return userByPhone;
+    }
+    return null;
+};
+
+
 
 export const updateUserOtp = async (phone, otp, expiresAt, sessionId) => {
     const updatedUserOtp = await User.updateOne(
