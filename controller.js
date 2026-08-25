@@ -488,3 +488,40 @@ export const updateOrderStatus = async (req, res) => {
     }
 };
 
+export const getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "Unauthorized token" });
+        }
+        const user = await services.getUserProfile(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User profile not found" });
+        }
+        return res.json({
+            success: true,
+            message: 'User profile fetched successfully',
+            data: user
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Profile retrieval failed: ${error.message}`
+        });
+    }
+};
+
+export const getActiveUserOrder = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) return res.json({ success: false, data: null });
+        const activeOrder = await services.getActiveUserOrder(userId);
+        return res.json({
+            success: true,
+            data: activeOrder
+        });
+    } catch (error) {
+        return res.json({ success: false, data: null });
+    }
+};
+

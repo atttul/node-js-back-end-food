@@ -154,6 +154,14 @@ export const fetchUser = async (body) => {
     return await dao.findUser(body);
 }
 
+export const getUserProfile = async (userId) => {
+    return await dao.getUserById(userId);
+}
+
+export const getActiveUserOrder = async (userId) => {
+    return await dao.getActiveOrderForUser(userId);
+}
+
 export const fetchFoodData = async () => {
     return await dao.fetchFoodData();
 }

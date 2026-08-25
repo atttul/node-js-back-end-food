@@ -39,6 +39,17 @@ export const getUserByPhone = async (phone) => {
     return await User.findOne({ phone_number: phone });
 };
 
+export const getUserById = async (id) => {
+    return await User.findById(id).select('-password -login_otp');
+};
+
+export const getActiveOrderForUser = async (userId) => {
+    return await Order.findOne({
+        user_id: userId,
+        order_status: { $in: ['PLACED', 'PREPARING', 'OUT_FOR_DELIVERY'] }
+    }).sort({ created_at: -1 });
+};
+
 export const getUserByEmailOtp = async (email) => {
     return await User.findOne({
         email: email,
