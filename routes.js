@@ -6,6 +6,7 @@ const router = express.Router();
 router.post('/create/user', controller.addUser)
 router.post('/fetch/user', controller.getUser)
 router.get('/user/profile', authenticateToken, controller.getUserProfile)
+router.post('/user/update-location', authenticateToken, controller.updateUserLocation)
 router.get('/user/active-order', authenticateToken, controller.getActiveUserOrder)
 router.get('/delete/all/user', controller.deleteUsers)
 router.post('/login/user', controller.loginUser)

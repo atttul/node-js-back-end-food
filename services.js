@@ -158,6 +158,10 @@ export const getUserProfile = async (userId) => {
     return await dao.getUserById(userId);
 }
 
+export const updateUserLocation = async (userId, location) => {
+    return await dao.updateUserLocation(userId, location);
+}
+
 export const getActiveUserOrder = async (userId) => {
     return await dao.getActiveOrderForUser(userId);
 }

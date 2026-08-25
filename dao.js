@@ -43,6 +43,13 @@ export const getUserById = async (id) => {
     return await User.findById(id).select('-password -login_otp');
 };
 
+export const updateUserLocation = async (userId, location) => {
+    return await User.updateOne(
+        { _id: userId },
+        { $set: { location: location } }
+    );
+};
+
 export const getActiveOrderForUser = async (userId) => {
     return await Order.findOne({
         user_id: userId,

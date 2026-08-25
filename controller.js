@@ -511,6 +511,31 @@ export const getUserProfile = async (req, res) => {
     }
 };
 
+export const updateUserLocation = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        const { location } = req.body;
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "Unauthorized token" });
+        }
+        if (!location || typeof location !== 'string' || location.trim().length < 3) {
+            return res.status(400).json({ success: false, message: "Please provide a valid delivery address (at least 3 characters)." });
+        }
+        const cleanLocation = location.trim();
+        await services.updateUserLocation(userId, cleanLocation);
+        return res.json({
+            success: true,
+            message: "Delivery location updated successfully!",
+            location: cleanLocation
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Failed to update delivery address: ${error.message}`
+        });
+    }
+};
+
 export const getActiveUserOrder = async (req, res) => {
     try {
         const userId = req.user?.userId;
