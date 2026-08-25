@@ -6,10 +6,51 @@ const { Cashfree, CFEnvironment } = cashfreePg;
 import dotenv from 'dotenv';
 dotenv.config();
 
+const validateEmail = (email) => {
+    return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+};
+
+const validatePhone = (phone) => {
+    const clean = String(phone || '').replace(/\D/g, '');
+    return clean.length === 10;
+};
+
 export const addUser = async (req, res) => {
     try {
         const { name, password, email, location, phone } = req.body;
-        const savedUser = await services.createUser(name, password, email, location, phone);
+
+        // Realistic Backend Input Validations
+        const errors = [];
+        if (!name || typeof name !== 'string' || name.trim().length < 2) {
+            errors.push('Full Name must be at least 2 characters long.');
+        }
+        if (!email || !validateEmail(email)) {
+            errors.push('Please provide a valid Email Address (e.g. name@domain.com).');
+        }
+        if (!phone || !validatePhone(phone)) {
+            errors.push('Please provide a valid 10-digit Mobile Phone Number.');
+        }
+        if (!password || typeof password !== 'string' || password.length < 6) {
+            errors.push('Password must be at least 6 characters long.');
+        }
+        if (!location || typeof location !== 'string' || location.trim().length < 3) {
+            errors.push('Delivery Location / Address must be at least 3 characters long.');
+        }
+
+        if (errors.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: errors.join(' '),
+                errors
+            });
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanPhone = String(phone).replace(/\D/g, '');
+        const cleanName = name.trim();
+        const cleanLocation = location.trim();
+
+        const savedUser = await services.createUser(cleanName, password, cleanEmail, cleanLocation, cleanPhone);
 
         if (savedUser && savedUser.alreadyExists) {
             return res.json({
@@ -57,17 +98,18 @@ export const loginUser = async (req, res) => {
 
         // Mode 1: Mobile Number & OTP Login
         if (loginType === 'otp' || (phone && !password && !userEmail)) {
-            if (!phone) {
-                return res.json({ success: false, message: "Please enter your 10-digit mobile number." });
+            if (!phone || !validatePhone(phone)) {
+                return res.status(400).json({ success: false, message: "Please enter a valid 10-digit mobile number." });
             }
-            const existingUser = await services.findUserByPhone(phone);
+            const cleanPhone = String(phone).replace(/\D/g, '');
+            const existingUser = await services.findUserByPhone(cleanPhone);
             if (!existingUser) {
                 return res.json({
                     success: false,
                     message: "No account registered with this Phone Number. Please create an account first."
                 });
             }
-            const otpSent = await services.sendOtp(phone);
+            const otpSent = await services.sendOtp(cleanPhone);
             return res.json({
                 success: true,
                 message: 'OTP code sent to your registered phone number',
@@ -76,11 +118,15 @@ export const loginUser = async (req, res) => {
         }
 
         // Mode 2: Email & Password Login
-        if (!userEmail || !password) {
-            return res.json({ success: false, message: "Please enter both Email Address and Password." });
+        if (!userEmail || !validateEmail(userEmail)) {
+            return res.status(400).json({ success: false, message: "Please enter a valid Email Address." });
+        }
+        if (!password || typeof password !== 'string' || password.trim().length === 0) {
+            return res.status(400).json({ success: false, message: "Please enter your Password." });
         }
 
-        const loginDetails = await services.fetchUser({ email: userEmail, password: password });
+        const cleanEmail = userEmail.trim().toLowerCase();
+        const loginDetails = await services.fetchUser({ email: cleanEmail, password: password });
 
         if (!loginDetails) {
             return res.json({
