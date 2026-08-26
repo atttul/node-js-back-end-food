@@ -257,7 +257,7 @@ export const deleteUsers = async (req, res) => {
 
 export const getFoodData = async (req, res) => {
     try {
-        // const id = req.user.userId;
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
         const food = await services.fetchFoodData();
         return res.json({
             success: true,
@@ -274,6 +274,7 @@ export const getFoodData = async (req, res) => {
 
 export const getFoodCategories = async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
         const foodCategories = await services.fetchFoodCategories();
         return res.json({
             success: true,
@@ -285,6 +286,29 @@ export const getFoodCategories = async (req, res) => {
             success: false,
             message: `FoodCategories detail could not found. ${error}`
         })
+    }
+}
+
+export const getHomeData = async (req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+        const [food, categories] = await Promise.all([
+            services.fetchFoodData(),
+            services.fetchFoodCategories()
+        ]);
+        return res.json({
+            success: true,
+            message: 'Home data fetched successfully',
+            data: {
+                foodItems: food,
+                foodCategories: categories
+            }
+        });
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Failed to fetch home data: ${error}`
+        });
     }
 }
 

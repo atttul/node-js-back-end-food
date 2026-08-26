@@ -131,20 +131,39 @@ export const deleteAllUsers = async () => {
     return user;
 }
 
+let foodCache = { data: null, timestamp: 0 };
+let categoryCache = { data: null, timestamp: 0 };
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 Minutes in-memory cache
+
+export const invalidateFoodCache = () => {
+    foodCache = { data: null, timestamp: 0 };
+    categoryCache = { data: null, timestamp: 0 };
+};
+
 export const fetchFoodData = async () => {
-    const food = await FoodItems.find();
+    const now = Date.now();
+    if (foodCache.data && (now - foodCache.timestamp < CACHE_TTL_MS)) {
+        return foodCache.data;
+    }
+    const food = await FoodItems.find().lean();
+    foodCache = { data: food, timestamp: now };
     return food;
 }
 
 export const fetchFoodCategories = async () => {
-    const foodCategories = await FoodCategories.find();
+    const now = Date.now();
+    if (categoryCache.data && (now - categoryCache.timestamp < CACHE_TTL_MS)) {
+        return categoryCache.data;
+    }
+    const foodCategories = await FoodCategories.find().lean();
+    categoryCache = { data: foodCategories, timestamp: now };
     return foodCategories;
 }
 
 export const fetchFoodItemsByName = async (name) => {
     const foodItemsByName = await FoodItems.findOne({
         name: name
-    })
+    }).lean();
     return foodItemsByName;
 }
 

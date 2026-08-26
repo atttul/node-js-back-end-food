@@ -16,6 +16,7 @@ router.post('/forgot-password/reset', controller.forgotPasswordReset)
 
 router.get('/food/data', controller.getFoodData)
 router.get('/food/categories', controller.getFoodCategories)
+router.get('/food/home-data', controller.getHomeData)
 router.post('/order/create', authenticateToken, controller.createOrder)
 router.get('/order/fetch', authenticateToken, controller.getAllOrders)
 router.post('/add/cart/item', authenticateToken, controller.addCartItem)
