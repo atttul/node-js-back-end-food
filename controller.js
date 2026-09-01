@@ -33,8 +33,8 @@ export const addUser = async (req, res) => {
         if (!password || typeof password !== 'string' || password.length < 6) {
             errors.push('Password must be at least 6 characters long.');
         }
-        if (!location || typeof location !== 'string' || location.trim().length < 3) {
-            errors.push('Delivery Location / Address must be at least 3 characters long.');
+        if (location && typeof location === 'string' && location.trim().length > 0 && location.trim().length < 3) {
+            errors.push('Delivery Location / Address must be at least 3 characters long if provided.');
         }
 
         if (errors.length > 0) {
@@ -48,7 +48,7 @@ export const addUser = async (req, res) => {
         const cleanEmail = email.trim().toLowerCase();
         const cleanPhone = String(phone).replace(/\D/g, '');
         const cleanName = name.trim();
-        const cleanLocation = location.trim();
+        const cleanLocation = (location && typeof location === 'string') ? location.trim() : '';
 
         const savedUser = await services.createUser(cleanName, password, cleanEmail, cleanLocation, cleanPhone);
 
