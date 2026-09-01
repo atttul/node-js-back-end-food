@@ -257,7 +257,7 @@ export const deleteUsers = async (req, res) => {
 
 export const getFoodData = async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         const food = await services.fetchFoodData();
         return res.json({
             success: true,
@@ -274,7 +274,7 @@ export const getFoodData = async (req, res) => {
 
 export const getFoodCategories = async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         const foodCategories = await services.fetchFoodCategories();
         return res.json({
             success: true,
@@ -291,7 +291,7 @@ export const getFoodCategories = async (req, res) => {
 
 export const getHomeData = async (req, res) => {
     try {
-        res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         const [food, categories] = await Promise.all([
             services.fetchFoodData(),
             services.fetchFoodCategories()
