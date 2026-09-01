@@ -10,7 +10,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 await mongoDb()
 
-app.use(cors({ origin: '*', allowedHeaders: ['Content-Type', 'Authorization'] }))
+app.use(cors({ origin: '*', allowedHeaders: ['Content-Type', 'Authorization', 'Cache-Control', 'Pragma'] }))
 
 app.post('/api/webhook/cashfree', express.raw({ type: 'application/json' }), controller.cashfreeWebhookHandler);
 app.use(express.json())
