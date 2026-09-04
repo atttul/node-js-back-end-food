@@ -1,6 +1,6 @@
 import express from "express"
 import * as controller from './controller.js'
-import authenticateToken from './utilities.js'
+import authenticateToken, { authorizeAdmin } from './utilities.js'
 const router = express.Router();
 
 router.post('/create/user', controller.addUser)
@@ -13,6 +13,20 @@ router.post('/login/user', controller.loginUser)
 router.post('/verify/otp', controller.verifyOtp)
 router.post('/forgot-password/request-otp', controller.forgotPasswordRequest)
 router.post('/forgot-password/reset', controller.forgotPasswordReset)
+
+// Admin Authentication, Users & Order Management
+router.post('/login/admin', controller.loginAdmin)
+router.get('/admin/orders', authenticateToken, authorizeAdmin, controller.getAdminOrders)
+router.patch('/admin/orders/:orderId/accept', authenticateToken, authorizeAdmin, controller.acceptAdminOrder)
+router.post('/admin/orders/accept', authenticateToken, authorizeAdmin, controller.acceptAdminOrder)
+router.patch('/admin/orders/:orderId/reject', authenticateToken, authorizeAdmin, controller.rejectAdminOrder)
+router.post('/admin/orders/reject', authenticateToken, authorizeAdmin, controller.rejectAdminOrder)
+router.patch('/admin/orders/:orderId/status', authenticateToken, authorizeAdmin, controller.updateAdminOrderStatus)
+router.post('/admin/orders/status', authenticateToken, authorizeAdmin, controller.updateAdminOrderStatus)
+
+router.get('/admin/users', authenticateToken, authorizeAdmin, controller.getAdminUsers)
+router.patch('/admin/users/:userId/role', authenticateToken, authorizeAdmin, controller.updateUserRoleAdmin)
+router.post('/admin/users/role', authenticateToken, authorizeAdmin, controller.updateUserRoleAdmin)
 
 router.get('/food/data', controller.getFoodData)
 router.get('/food/categories', controller.getFoodCategories)

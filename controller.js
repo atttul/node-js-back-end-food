@@ -574,3 +574,158 @@ export const getActiveUserOrder = async (req, res) => {
     }
 };
 
+export const loginAdmin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !validateEmail(email)) {
+            return res.status(400).json({ success: false, message: "Please provide a valid Admin Email Address." });
+        }
+        if (!password || typeof password !== 'string' || password.trim().length === 0) {
+            return res.status(400).json({ success: false, message: "Please enter your Admin Password." });
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+        const user = await services.fetchUser({ email: cleanEmail, password: password });
+
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid Email Address or Password."
+            });
+        }
+
+        if (user.role !== 'admin') {
+            return res.status(403).json({
+                success: false,
+                message: "Access Denied: This account does not have Admin privileges."
+            });
+        }
+
+        const accessToken = jwt.sign(
+            { userId: user._id, role: 'admin' },
+            process.env.SECRET_KEY || ''
+        );
+
+        user.access_token = accessToken;
+        await services.updateUser(user._id, accessToken);
+
+        return res.json({
+            success: true,
+            message: "Admin authentication successful",
+            accessToken,
+            data: user
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Admin login failed: ${error.message}`
+        });
+    }
+};
+
+export const getAdminOrders = async (req, res) => {
+    try {
+        const result = await services.getAllAdminOrders();
+        return res.json({
+            success: true,
+            message: "Admin orders fetched successfully",
+            data: result.orders,
+            metrics: result.metrics
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Failed to fetch admin orders: ${error.message}`
+        });
+    }
+};
+
+export const acceptAdminOrder = async (req, res) => {
+    try {
+        const orderId = req.params.orderId || req.body.orderId;
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: "Order ID is required." });
+        }
+        const result = await services.acceptOrderAdmin(orderId);
+        return res.json(result);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Accept order failed: ${error.message}`
+        });
+    }
+};
+
+export const rejectAdminOrder = async (req, res) => {
+    try {
+        const orderId = req.params.orderId || req.body.orderId;
+        const reason = req.body.reason || req.body.rejection_reason || '';
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: "Order ID is required." });
+        }
+        const result = await services.rejectOrderAdmin(orderId, reason);
+        return res.json(result);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Reject order failed: ${error.message}`
+        });
+    }
+};
+
+export const updateAdminOrderStatus = async (req, res) => {
+    try {
+        const orderId = req.params.orderId || req.body.orderId;
+        const status = req.body.status || req.body.order_status;
+        if (!orderId || !status) {
+            return res.status(400).json({ success: false, message: "Order ID and status are required." });
+        }
+        const result = await services.updateAdminOrderStatus(orderId, status);
+        return res.json(result);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Status update failed: ${error.message}`
+        });
+    }
+};
+
+export const getAdminUsers = async (req, res) => {
+    try {
+        const users = await services.getAllUsersAdmin();
+        return res.json({
+            success: true,
+            message: "Admin users fetched successfully",
+            data: users
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Failed to fetch users: ${error.message}`
+        });
+    }
+};
+
+export const updateUserRoleAdmin = async (req, res) => {
+    try {
+        const adminUserId = req.user?.userId;
+        const targetUserId = req.params.userId || req.body.userId;
+        const role = req.body.role;
+
+        if (!targetUserId || !role) {
+            return res.status(400).json({ success: false, message: "Target user ID and role are required." });
+        }
+
+        const result = await services.updateUserRoleAdmin(adminUserId, targetUserId, role);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        return res.json(result);
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: `Role update failed: ${error.message}`
+        });
+    }
+};
+

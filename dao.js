@@ -13,7 +13,8 @@ export const createUser = async (name, password, email, location, phone) => {
         password,
         email,
         location,
-        phone_number: phone
+        phone_number: phone,
+        role: 'user'
     })
     return savedUser;
 }
@@ -53,7 +54,7 @@ export const updateUserLocation = async (userId, location) => {
 export const getActiveOrderForUser = async (userId) => {
     return await Order.findOne({
         user_id: userId,
-        order_status: { $in: ['PLACED', 'PREPARING', 'OUT_FOR_DELIVERY'] }
+        order_status: { $in: ['PLACED', 'PENDING', 'ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY'] }
     }).sort({ created_at: -1 });
 };
 
@@ -177,7 +178,7 @@ export const createOrder = async (userId, body, totalPrice) => {
         total_amount: totalPrice,
         created_at: new Date(),
         estimated_delivery_minutes: 30,
-        order_status: 'PLACED'
+        order_status: 'PENDING'
     })
     return orderCreated;
 }
@@ -200,6 +201,44 @@ export const getAllOrders = async (userId) => {
         user_id: userId
     }).sort({ created_at: -1 });
     return allOrders;
+}
+
+export const getAllAdminOrders = async () => {
+    const allOrders = await Order.find({}).sort({ created_at: -1 });
+    return allOrders;
+}
+
+export const acceptOrderAdmin = async (orderId) => {
+    const acceptedAt = new Date();
+    const deliveryDeadline = new Date(acceptedAt.getTime() + 30 * 60 * 1000);
+    const updated = await Order.findByIdAndUpdate(
+        orderId,
+        {
+            $set: {
+                order_status: 'ACCEPTED',
+                accepted_at: acceptedAt,
+                delivery_deadline: deliveryDeadline
+            }
+        },
+        { new: true }
+    );
+    return updated;
+}
+
+export const rejectOrderAdmin = async (orderId, reason = '') => {
+    const rejectedAt = new Date();
+    const updated = await Order.findByIdAndUpdate(
+        orderId,
+        {
+            $set: {
+                order_status: 'REJECTED',
+                rejected_at: rejectedAt,
+                rejection_reason: reason
+            }
+        },
+        { new: true }
+    );
+    return updated;
 }
 
 export const clearCart = async (userId) => {
@@ -294,3 +333,11 @@ export const updatePaymentPendingOrder = async (orderId, paymentStatus, paymentI
     );
     return paymentCreated;
 }
+
+export const getAllUsersAdmin = async () => {
+    return await User.find().select('-password -login_otp');
+};
+
+export const updateUserRoleAdmin = async (userId, role) => {
+    return await User.findByIdAndUpdate(userId, { $set: { role } }, { new: true }).select('-password -login_otp');
+};

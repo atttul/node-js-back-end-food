@@ -12,6 +12,7 @@ const userSchema = new Schema({
     login_otp: { type: Number, default: null, required: false },
     otp_expires_at: { type: Date, default: null, required: false },
     session_id: { type: String, default: null, required: false },
+    role: { type: String, enum: ['user', 'admin'], default: 'user', required: false },
 })
 
 export const User = mongoose.model("user", userSchema);

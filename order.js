@@ -10,7 +10,11 @@ const orderSchema = new Schema({
     total_amount: { type: Number, required: false },
     created_at: { type: Date, default: Date.now },
     estimated_delivery_minutes: { type: Number, default: 30 },
-    order_status: { type: String, default: 'PLACED' },
+    order_status: { type: String, default: 'PENDING' },
+    accepted_at: { type: Date, default: null },
+    delivery_deadline: { type: Date, default: null },
+    rejected_at: { type: Date, default: null },
+    rejection_reason: { type: String, default: "" },
     restaurant_coords: {
         lat: { type: Number, default: 28.6315 },
         lng: { type: Number, default: 77.2167 },

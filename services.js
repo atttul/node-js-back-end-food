@@ -256,28 +256,38 @@ export const getOrderTrackingDetails = async (orderId) => {
         }
     }
 
-    const createdTime = order?.created_at ? new Date(order.created_at).getTime() : Date.now();
-    const elapsedSeconds = Math.floor((Date.now() - createdTime) / 1000);
-    const estimatedMinutes = order?.estimated_delivery_minutes || 30;
-    const totalDurationSeconds = estimatedMinutes * 60;
-    const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds);
-    const progressPercentage = Math.min(100, Math.floor((elapsedSeconds / totalDurationSeconds) * 100));
+    let remainingSeconds = 1800;
+    let progressPercentage = 0;
+    let computedStatus = order?.order_status || 'PENDING';
 
     const restaurantCoords = order?.restaurant_coords || { lat: 28.6315, lng: 77.2167, name: 'Mern Dine Central Kitchen' };
     const userCoords = order?.user_coords || { lat: 28.6139, lng: 77.2090 };
 
+    if (computedStatus === 'REJECTED') {
+        remainingSeconds = 0;
+        progressPercentage = 0;
+    } else if (order?.accepted_at && order?.delivery_deadline) {
+        const acceptedTime = new Date(order.accepted_at).getTime();
+        const deadlineTime = new Date(order.delivery_deadline).getTime();
+        const now = Date.now();
+        const totalDurationSeconds = Math.max(1, Math.floor((deadlineTime - acceptedTime) / 1000));
+        const elapsedSeconds = Math.max(0, Math.floor((now - acceptedTime) / 1000));
+
+        remainingSeconds = Math.max(0, Math.floor((deadlineTime - now) / 1000));
+        progressPercentage = Math.min(100, Math.floor((elapsedSeconds / totalDurationSeconds) * 100));
+    } else {
+        // Fallback for pending / legacy orders without acceptance timestamp
+        const createdTime = order?.created_at ? new Date(order.created_at).getTime() : Date.now();
+        const elapsedSeconds = Math.floor((Date.now() - createdTime) / 1000);
+        const estimatedMinutes = order?.estimated_delivery_minutes || 30;
+        const totalDurationSeconds = estimatedMinutes * 60;
+        remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds);
+        progressPercentage = Math.min(100, Math.floor((elapsedSeconds / totalDurationSeconds) * 100));
+    }
+
     const fraction = progressPercentage / 100;
     const currentRiderLat = restaurantCoords.lat + (userCoords.lat - restaurantCoords.lat) * fraction;
     const currentRiderLng = restaurantCoords.lng + (userCoords.lng - restaurantCoords.lng) * fraction;
-
-    let computedStatus = order?.order_status || 'PLACED';
-    if (progressPercentage >= 100) {
-        computedStatus = 'DELIVERED';
-    } else if (progressPercentage >= 40) {
-        computedStatus = 'OUT_FOR_DELIVERY';
-    } else if (progressPercentage >= 15) {
-        computedStatus = 'PREPARING';
-    }
 
     return {
         orderId: order?._id || orderId || 'demo_order_123',
@@ -286,7 +296,9 @@ export const getOrderTrackingDetails = async (orderId) => {
         size: order?.size || '',
         quantity: order?.quantity || 1,
         created_at: order?.created_at || new Date(),
-        estimated_delivery_minutes: estimatedMinutes,
+        accepted_at: order?.accepted_at || null,
+        delivery_deadline: order?.delivery_deadline || null,
+        estimated_delivery_minutes: order?.estimated_delivery_minutes || 30,
         remaining_seconds: remainingSeconds,
         progress_percentage: progressPercentage,
         status: computedStatus,
@@ -306,6 +318,111 @@ export const getOrderTrackingDetails = async (orderId) => {
 
 export const updateOrderStatus = async (orderId, status) => {
     return await dao.updateOrderStatus(orderId, status);
+};
+
+export const getAllAdminOrders = async () => {
+    const orders = await dao.getAllAdminOrders();
+    const metrics = {
+        total: orders.length,
+        pending: orders.filter(o => o.order_status === 'PENDING' || o.order_status === 'PLACED').length,
+        accepted: orders.filter(o => o.order_status === 'ACCEPTED' || o.order_status === 'PREPARING' || o.order_status === 'OUT_FOR_DELIVERY').length,
+        delivered: orders.filter(o => o.order_status === 'DELIVERED').length,
+        rejected: orders.filter(o => o.order_status === 'REJECTED').length
+    };
+    return { orders, metrics };
+};
+
+export const acceptOrderAdmin = async (orderId) => {
+    const order = await dao.getOrderById(orderId);
+    if (!order) {
+        return { success: false, message: 'Order not found.' };
+    }
+    if (order.order_status === 'REJECTED') {
+        return { success: false, message: 'Cannot accept an order that has already been rejected.' };
+    }
+    if (['ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.order_status)) {
+        return { success: false, message: `Order has already been accepted (current status: ${order.order_status}).` };
+    }
+
+    const updated = await dao.acceptOrderAdmin(orderId);
+    return {
+        success: true,
+        message: 'Order accepted successfully! 30-minute delivery clock started.',
+        data: updated
+    };
+};
+
+export const rejectOrderAdmin = async (orderId, reason = '') => {
+    const order = await dao.getOrderById(orderId);
+    if (!order) {
+        return { success: false, message: 'Order not found.' };
+    }
+    if (['ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.order_status)) {
+        return { success: false, message: 'Cannot reject an order that has already been accepted.' };
+    }
+    if (order.order_status === 'REJECTED') {
+        return { success: false, message: 'Order is already rejected.' };
+    }
+
+    const updated = await dao.rejectOrderAdmin(orderId, reason);
+    return {
+        success: true,
+        message: 'Order rejected successfully.',
+        data: updated
+    };
+};
+
+export const updateAdminOrderStatus = async (orderId, status) => {
+    const order = await dao.getOrderById(orderId);
+    if (!order) {
+        return { success: false, message: 'Order not found.' };
+    }
+    if (order.order_status === 'REJECTED') {
+        return { success: false, message: 'Cannot update status of a rejected order.' };
+    }
+
+    const validStatuses = ['PENDING', 'ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY', 'DELIVERED', 'REJECTED'];
+    if (!validStatuses.includes(status)) {
+        return { success: false, message: `Invalid status '${status}'.` };
+    }
+
+    await dao.updateOrderStatus(orderId, status);
+    const updated = await dao.getOrderById(orderId);
+    return {
+        success: true,
+        message: `Order status updated to '${status}'.`,
+        data: updated
+    };
+};
+
+export const getAllUsersAdmin = async () => {
+    const users = await dao.getAllUsersAdmin();
+    return users.map(u => ({
+        ...u.toObject(),
+        role: u.role || 'user'
+    }));
+};
+
+export const updateUserRoleAdmin = async (adminUserId, targetUserId, newRole) => {
+    if (!['user', 'admin'].includes(newRole)) {
+        return { success: false, message: `Invalid role '${newRole}'. Allowed roles: 'user', 'admin'.` };
+    }
+
+    if (String(adminUserId) === String(targetUserId)) {
+        return { success: false, message: 'Security Policy Violation: You cannot modify your own administrative role.' };
+    }
+
+    const targetUser = await dao.getUserById(targetUserId);
+    if (!targetUser) {
+        return { success: false, message: 'Target user not found.' };
+    }
+
+    const updatedUser = await dao.updateUserRoleAdmin(targetUserId, newRole);
+    return {
+        success: true,
+        message: `User '${updatedUser.name || updatedUser.email}' role updated to '${newRole}'.`,
+        data: updatedUser
+    };
 };
 
 

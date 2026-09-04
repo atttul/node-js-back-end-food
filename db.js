@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const mongoUrl = process.env.MONGO_URI || '';
+const mongoUrl = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/mern_dine';
 
 let cached = global.mongoose;
 if (!cached) {
