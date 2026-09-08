@@ -52,6 +52,7 @@ export const updateUserLocation = async (userId, location) => {
 };
 
 export const getActiveOrderForUser = async (userId) => {
+    await autoAcceptOverdueOrders();
     return await Order.findOne({
         user_id: userId,
         order_status: { $in: ['PLACED', 'PENDING', 'ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY'] }
@@ -184,6 +185,30 @@ export const fetchFoodItemsByName = async (name) => {
     return foodItemsByName;
 }
 
+export const autoAcceptOverdueOrders = async () => {
+    try {
+        const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
+        const overdueOrders = await Order.find({
+            order_status: 'PENDING',
+            created_at: { $lte: threeMinutesAgo }
+        });
+
+        for (const order of overdueOrders) {
+            const acceptedAt = new Date();
+            const deliveryDeadline = new Date(acceptedAt.getTime() + 30 * 60 * 1000);
+            await Order.findByIdAndUpdate(order._id, {
+                $set: {
+                    order_status: 'ACCEPTED',
+                    accepted_at: acceptedAt,
+                    delivery_deadline: deliveryDeadline
+                }
+            });
+        }
+    } catch (err) {
+        console.error("Error auto-accepting overdue orders:", err);
+    }
+};
+
 export const createOrder = async (userId, body, totalPrice) => {
     const orderCreated = await Order.create({
         user_id: userId,
@@ -195,14 +220,36 @@ export const createOrder = async (userId, body, totalPrice) => {
         created_at: new Date(),
         estimated_delivery_minutes: 30,
         order_status: 'PENDING'
-    })
+    });
+
+    // Per-Order Dynamic Timer: Automatically accept order after 3 minutes (180,000 ms) if still PENDING
+    setTimeout(async () => {
+        try {
+            const currentOrder = await Order.findById(orderCreated._id);
+            if (currentOrder && currentOrder.order_status === 'PENDING') {
+                const acceptedAt = new Date();
+                const deliveryDeadline = new Date(acceptedAt.getTime() + 30 * 60 * 1000);
+                await Order.findByIdAndUpdate(orderCreated._id, {
+                    $set: {
+                        order_status: 'ACCEPTED',
+                        accepted_at: acceptedAt,
+                        delivery_deadline: deliveryDeadline
+                    }
+                });
+                console.log(`[Auto-Accept] Order ${orderCreated._id} auto-accepted after 3 minutes in PENDING state.`);
+            }
+        } catch (err) {
+            console.error(`[Auto-Accept Timer Error] Order ${orderCreated._id}:`, err);
+        }
+    }, 3 * 60 * 1000);
+
     return orderCreated;
-}
+};
 
 export const getOrderById = async (orderId) => {
     const order = await Order.findById(orderId);
     return order;
-}
+};
 
 export const updateOrderStatus = async (orderId, status) => {
     const updated = await Order.updateOne(
@@ -210,19 +257,21 @@ export const updateOrderStatus = async (orderId, status) => {
         { $set: { order_status: status } }
     );
     return updated;
-}
+};
 
 export const getAllOrders = async (userId) => {
+    await autoAcceptOverdueOrders();
     const allOrders = await Order.find({
         user_id: userId
     }).sort({ created_at: -1 });
     return allOrders;
-}
+};
 
 export const getAllAdminOrders = async () => {
+    await autoAcceptOverdueOrders();
     const allOrders = await Order.find({}).sort({ created_at: -1 });
     return allOrders;
-}
+};
 
 export const acceptOrderAdmin = async (orderId) => {
     const acceptedAt = new Date();
