@@ -263,6 +263,8 @@ export const getOrderTrackingDetails = async (orderId) => {
     let remainingSeconds = 1800;
     let progressPercentage = 0;
     let computedStatus = order?.order_status || 'PENDING';
+    let isPendingAcceptance = false;
+    let autoAcceptRemainingSeconds = 0;
 
     const restaurantCoords = order?.restaurant_coords || { lat: 28.6315, lng: 77.2167, name: 'Mern Dine Central Kitchen' };
     const userCoords = order?.user_coords || { lat: 28.6139, lng: 77.2090 };
@@ -270,7 +272,18 @@ export const getOrderTrackingDetails = async (orderId) => {
     if (computedStatus === 'REJECTED') {
         remainingSeconds = 0;
         progressPercentage = 0;
+    } else if (computedStatus === 'PENDING' || computedStatus === 'PLACED') {
+        // Order is waiting for restaurant acceptance (auto-accepts in 3 mins)
+        // Delivery 30-min timer has NOT started yet!
+        remainingSeconds = (order?.estimated_delivery_minutes || 30) * 60;
+        progressPercentage = 0;
+        isPendingAcceptance = true;
+        
+        const createdTime = order?.created_at ? new Date(order.created_at).getTime() : Date.now();
+        const elapsedSinceCreated = Math.floor((Date.now() - createdTime) / 1000);
+        autoAcceptRemainingSeconds = Math.max(0, 180 - elapsedSinceCreated);
     } else if (order?.accepted_at && order?.delivery_deadline) {
+        // Order was accepted by admin or auto-accepted! 30-min timer is running!
         const acceptedTime = new Date(order.accepted_at).getTime();
         const deadlineTime = new Date(order.delivery_deadline).getTime();
         const now = Date.now();
@@ -280,11 +293,11 @@ export const getOrderTrackingDetails = async (orderId) => {
         remainingSeconds = Math.max(0, Math.floor((deadlineTime - now) / 1000));
         progressPercentage = Math.min(100, Math.floor((elapsedSeconds / totalDurationSeconds) * 100));
     } else {
-        // Fallback for pending / legacy orders without acceptance timestamp
-        const createdTime = order?.created_at ? new Date(order.created_at).getTime() : Date.now();
-        const elapsedSeconds = Math.floor((Date.now() - createdTime) / 1000);
+        // Fallback for accepted orders without explicit timestamps
+        const acceptedTime = order?.created_at ? new Date(order.created_at).getTime() : Date.now();
         const estimatedMinutes = order?.estimated_delivery_minutes || 30;
         const totalDurationSeconds = estimatedMinutes * 60;
+        const elapsedSeconds = Math.floor((Date.now() - acceptedTime) / 1000);
         remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds);
         progressPercentage = Math.min(100, Math.floor((elapsedSeconds / totalDurationSeconds) * 100));
     }
@@ -305,6 +318,8 @@ export const getOrderTrackingDetails = async (orderId) => {
         estimated_delivery_minutes: order?.estimated_delivery_minutes || 30,
         remaining_seconds: remainingSeconds,
         progress_percentage: progressPercentage,
+        is_pending_acceptance: isPendingAcceptance,
+        auto_accept_remaining_seconds: autoAcceptRemainingSeconds,
         status: computedStatus,
         restaurant_coords: restaurantCoords,
         user_coords: userCoords,
