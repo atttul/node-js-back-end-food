@@ -174,6 +174,10 @@ export const fetchFoodCategories = async () => {
     return await dao.fetchFoodCategories();
 }
 
+export const fetchHomeData = async () => {
+    return await dao.fetchHomeData();
+}
+
 export const deleteUsers = async () => {
     return await dao.deleteAllUsers();
 }

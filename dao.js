@@ -134,11 +134,13 @@ export const deleteAllUsers = async () => {
 
 let foodCache = { data: null, timestamp: 0 };
 let categoryCache = { data: null, timestamp: 0 };
+let homeDataCache = { data: null, timestamp: 0 };
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 Minutes in-memory cache
 
 export const invalidateFoodCache = () => {
     foodCache = { data: null, timestamp: 0 };
     categoryCache = { data: null, timestamp: 0 };
+    homeDataCache = { data: null, timestamp: 0 };
 };
 
 export const fetchFoodData = async () => {
@@ -159,6 +161,20 @@ export const fetchFoodCategories = async () => {
     const foodCategories = await FoodCategories.find().lean();
     categoryCache = { data: foodCategories, timestamp: now };
     return foodCategories;
+}
+
+export const fetchHomeData = async () => {
+    const now = Date.now();
+    if (homeDataCache.data && (now - homeDataCache.timestamp < CACHE_TTL_MS)) {
+        return homeDataCache.data;
+    }
+    const [foodItems, foodCategories] = await Promise.all([
+        fetchFoodData(),
+        fetchFoodCategories()
+    ]);
+    const homeData = { foodItems, foodCategories };
+    homeDataCache = { data: homeData, timestamp: now };
+    return homeData;
 }
 
 export const fetchFoodItemsByName = async (name) => {
