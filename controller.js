@@ -391,11 +391,38 @@ export const deleteCartItem = async (req, res) => {
     }
 }
 
+export const clearCart = async (req, res) => {
+    try {
+        const userId = req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized: User authentication required.'
+            });
+        }
+        const cartCleared = await services.clearCart(userId);
+        return res.json({
+            success: true,
+            message: 'Cart Cleared Successfully',
+            data: cartCleared
+        });
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: `Cart Clearing Failed. ${error.message || error}`
+        });
+    }
+};
+
 export const createCashfreeOrder = async (req, res) => {
     try {
-        const { userId, orderAmount, customerName, customerId, customerEmail, customerPhone, orderAddress } = req.body;
+        const { userId, orderAmount, customerName, customerId, customerEmail, customerPhone, orderAddress, returnUrl } = req.body;
+        const effectiveUserId = req.user?.userId || userId;
 
-        const orderId = "order_" + Date.now()
+        const frontendUrl = returnUrl || req.headers.origin || process.env.FRONTEND_URL || 'http://localhost:3000';
+        const cleanFrontendUrl = frontendUrl.replace(/\/$/, '');
+
+        const orderId = "order_" + Date.now();
         const payload = {
             order_id: orderId,
             order_amount: orderAmount,
@@ -407,7 +434,7 @@ export const createCashfreeOrder = async (req, res) => {
                 customer_phone: customerPhone,
             },
             order_meta: {
-                return_url: `${process.env.FRONTEND_URL}/payment-success?order_id=${orderId}`,
+                return_url: `${cleanFrontendUrl}/payment-success?order_id=${orderId}`,
                 notify_url: `${process.env.BACKEND_URL}/api/webhook/cashfree`,
                 payment_methods: "cc,dc,nb,upi",
             },
@@ -426,7 +453,7 @@ export const createCashfreeOrder = async (req, res) => {
         );
 
         if (response.data) {
-            await services.createPaymentOrder(userId, payload, orderAddress);
+            await services.createPaymentOrder(effectiveUserId, payload, orderAddress);
         }
 
         return res.json({

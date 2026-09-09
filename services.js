@@ -183,60 +183,125 @@ export const deleteUsers = async () => {
 }
 
 export const createOrder = async (userId, bodies) => {
-    let orders = []
-    for (const body of bodies) {
-        const foodItems = await dao.fetchFoodItemsByName(body.name);
-        let sizePrice = +foodItems.options[0][body.size];
-        const totalPrice = body.qty * sizePrice;
-        const order = await dao.createOrder(userId, body, totalPrice)
-        if (order) {
-            await dao.clearCart(userId)
+    let orders = [];
+    const bodiesArray = Array.isArray(bodies) ? bodies : [bodies];
+
+    let userEmail = '';
+    try {
+        const user = await dao.getUserById(userId);
+        userEmail = user?.email || '';
+    } catch (e) {}
+
+    for (const body of bodiesArray) {
+        if (!body || !body.name) continue;
+
+        let totalPrice = 0;
+        try {
+            const foodItems = await dao.fetchFoodItemsByName(body.name);
+            let sizePrice = 0;
+            if (foodItems && Array.isArray(foodItems.options) && foodItems.options[0]) {
+                const opt = foodItems.options[0];
+                if (body.size && opt[body.size] !== undefined) {
+                    sizePrice = +opt[body.size];
+                } else {
+                    const firstKey = Object.keys(opt)[0];
+                    if (firstKey && opt[firstKey] !== undefined) {
+                        sizePrice = +opt[firstKey];
+                    }
+                }
+            }
+            const qty = Number(body.qty) || 1;
+            totalPrice = sizePrice > 0 ? (qty * sizePrice) : (Number(body.total_amount) || Number(body.price) || 0);
+        } catch (err) {
+            console.warn("Pricing calculation fallback in createOrder:", err);
+            totalPrice = Number(body.total_amount) || Number(body.price) || 0;
         }
-        orders.push(order)
+
+        const orderPayload = {
+            ...body,
+            email: body.email || userEmail
+        };
+
+        const order = await dao.createOrder(userId, orderPayload, totalPrice);
+        if (order) {
+            orders.push(order);
+        }
     }
+
+    // Always clear user's entire cart in database after creating orders
+    await dao.clearCart(userId);
+
     return orders;
-}
+};
+
+export const clearCart = async (userId) => {
+    return await dao.clearCart(userId);
+};
 
 export const getAllOrders = async (userId) => {
-    let orders = await dao.getAllOrders(userId)
+    let orders = await dao.getAllOrders(userId);
     return orders;
-}
+};
 
 export const addCartItem = async (userId, body) => {
-    const foodItems = await dao.fetchFoodItemsByName(body.name);
-    let sizePrice = +foodItems.options[0][body.size];
-    const totalPrice = body.qty * sizePrice;
+    let totalPrice = 0;
+    try {
+        const foodItems = await dao.fetchFoodItemsByName(body.name);
+        let sizePrice = 0;
+        if (foodItems && Array.isArray(foodItems.options) && foodItems.options[0]) {
+            const opt = foodItems.options[0];
+            if (body.size && opt[body.size] !== undefined) {
+                sizePrice = +opt[body.size];
+            } else {
+                const firstKey = Object.keys(opt)[0];
+                if (firstKey && opt[firstKey] !== undefined) {
+                    sizePrice = +opt[firstKey];
+                }
+            }
+        }
+        const qty = Number(body.qty) || 1;
+        totalPrice = sizePrice > 0 ? (qty * sizePrice) : (Number(body.total_amount) || Number(body.price) || 0);
+    } catch (err) {
+        console.warn("Pricing calculation fallback in addCartItem:", err);
+        totalPrice = Number(body.total_amount) || Number(body.price) || 0;
+    }
+
     const cartItemAdded = await dao.addCartItem(userId, body, totalPrice);
     return cartItemAdded;
-}
+};
 
 export const getCartItems = async (userId) => {
-    // const foodItems = await dao.fetchFoodItemsByName(body.name);
-    // let sizePrice = +foodItems.options[0][body.size];
-    // const totalPrice = body.qty * sizePrice;
     const cartItems = await dao.getCartItems(userId);
     return cartItems;
-}
+};
 
 
 export const deleteCartItem = async (userId, body) => {
     const cartItemDeleted = await dao.deleteCartItem(userId, body);
     return cartItemDeleted;
-}
+};
 
 export const createPayment = async (userId, orderId, amount, paymetStatus) => {
     const paymentCreated = await dao.createPaymentOrder(userId, orderId, amount, paymetStatus);
     return paymentCreated;
-}
+};
 
 export const createPaymentOrder = async (userId, payload, orderAddress) => {
     const paymentVerified = await dao.createPaymentPendingOrder(userId, payload, orderAddress);
     return paymentVerified;
-}
+};
 
 export const handleCashfreeWebhook = async (payload, signature) => {
     if (payload.type === "PAYMENT_SUCCESS_WEBHOOK") {
         await dao.updatePaymentPendingOrder(payload.data.order?.order_id, PaymentStatus.VERIFIED, payload.data.payment_gateway_details?.gateway_payment_id);
+        try {
+            const paymentRecord = await dao.getPaymentOrderByOrderId(payload.data.order?.order_id);
+            if (paymentRecord?.user_id) {
+                await dao.clearCart(paymentRecord.user_id);
+            }
+        } catch (e) {
+            console.error("Webhook clear cart error:", e);
+        }
     }
 
     else if (payload.type === "PAYMENT_FAILED_WEBHOOK") {
@@ -247,7 +312,7 @@ export const handleCashfreeWebhook = async (payload, signature) => {
         await dao.updatePaymentPendingOrder(payload.data.order?.order_id, PaymentStatus.USER_DROPPED, payload.data.payment_gateway_details?.gateway_payment_id);
     }
 
-    return true
+    return true;
 };
 
 export const getOrderTrackingDetails = async (orderId) => {

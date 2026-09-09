@@ -179,9 +179,14 @@ export const fetchHomeData = async () => {
 }
 
 export const fetchFoodItemsByName = async (name) => {
-    const foodItemsByName = await FoodItems.findOne({
-        name: name
+    if (!name) return null;
+    const trimmed = String(name).trim();
+    let foodItemsByName = await FoodItems.findOne({
+        name: { $regex: new RegExp(`^${trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
     }).lean();
+    if (!foodItemsByName) {
+        foodItemsByName = await FoodItems.findOne({ name: trimmed }).lean();
+    }
     return foodItemsByName;
 }
 
@@ -210,12 +215,22 @@ export const autoAcceptOverdueOrders = async () => {
 };
 
 export const createOrder = async (userId, body, totalPrice) => {
+    let email = body.email;
+    if (!email) {
+        try {
+            const user = await User.findById(userId).lean();
+            email = user?.email || `${user?.phone_number || 'customer'}@go-food.com`;
+        } catch (e) {
+            email = 'customer@go-food.com';
+        }
+    }
+
     const orderCreated = await Order.create({
         user_id: userId,
-        email: body.email,
+        email: email,
         product_name: body.name,
-        quantity: body.qty,
-        size: body.size,
+        quantity: Number(body.qty) || 1,
+        size: body.size || 'regular',
         total_amount: totalPrice,
         created_at: new Date(),
         estimated_delivery_minutes: 30,
@@ -307,7 +322,7 @@ export const rejectOrderAdmin = async (orderId, reason = '') => {
 }
 
 export const clearCart = async (userId) => {
-    await Cart.updateOne(
+    const result = await Cart.updateMany(
         {
             user_id: userId,
             status: 1
@@ -317,46 +332,65 @@ export const clearCart = async (userId) => {
                 status: 0
             }
         }
-    )
-}
+    );
+    return result;
+};
 
 
 export const addCartItem = async (userId, body, totalPrice) => {
+    const name = String(body.name || '').trim();
+    // Check if item already exists in user's active cart
+    const existing = await Cart.findOne({
+        user_id: userId,
+        status: 1,
+        product_name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+
+    if (existing) {
+        existing.quantity = Number(body.qty) || 1;
+        existing.size = body.size || existing.size;
+        existing.total_amount = totalPrice;
+        await existing.save();
+        return existing;
+    }
+
     const addedCartItem = await Cart.create({
         user_id: userId,
-        product_name: body.name,
-        quantity: body.qty,
+        product_name: name,
+        quantity: Number(body.qty) || 1,
         size: body.size,
-        total_amount: totalPrice
-    })
+        total_amount: totalPrice,
+        status: 1
+    });
     return addedCartItem;
-}
+};
 
 export const getCartItems = async (userId) => {
     const CartItems = await Cart.find({
         user_id: userId,
         status: 1
-    })
+    });
     return CartItems;
-}
+};
 
 
 export const deleteCartItem = async (userId, body) => {
-    const deletedCartItem = await Cart.updateOne(
+    const name = String(body.name || '').trim();
+    const deletedCartItem = await Cart.updateMany(
         {
             user_id: userId,
-            product_name: body.name,
-            status: 1
+            status: 1,
+            product_name: { $regex: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
         },
         {
             $set: {
                 status: 0
             }
         }
-    )
+    );
 
     return deletedCartItem;
-}
+};
 
 
 export const createPaymentOrder = async (userId, orderId, amount, paymetStatus) => {
@@ -398,6 +432,10 @@ export const updatePaymentPendingOrder = async (orderId, paymentStatus, paymentI
     );
     return paymentCreated;
 }
+
+export const getPaymentOrderByOrderId = async (orderId) => {
+    return await Payment.findOne({ order_id: orderId });
+};
 
 export const getAllUsersAdmin = async () => {
     return await User.find().select('-password -login_otp');

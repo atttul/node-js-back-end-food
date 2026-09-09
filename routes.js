@@ -36,6 +36,8 @@ router.get('/order/fetch', authenticateToken, controller.getAllOrders)
 router.post('/add/cart/item', authenticateToken, controller.addCartItem)
 router.get('/fetch/cart/items', authenticateToken, controller.getCartItems)
 router.delete('/delete/cart/item', authenticateToken, controller.deleteCartItem)
+router.delete('/clear/cart', authenticateToken, controller.clearCart)
+router.post('/clear/cart', authenticateToken, controller.clearCart)
 
 router.post('/create/cashfree/order', controller.createCashfreeOrder);
 
