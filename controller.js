@@ -420,7 +420,7 @@ export const createCashfreeOrder = async (req, res) => {
         const effectiveUserId = req.user?.userId || userId;
 
         const frontendUrl = returnUrl || req.headers.origin || process.env.FRONTEND_URL || 'http://localhost:3000';
-        const cleanFrontendUrl = frontendUrl.replace(/\/$/, '');
+        const cleanFrontendUrl = frontendUrl.replace(/\/payment-success(\/.*)?$/, '').replace(/\/$/, '');
 
         const orderId = "order_" + Date.now();
         const payload = {

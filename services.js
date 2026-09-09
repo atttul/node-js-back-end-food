@@ -293,14 +293,32 @@ export const createPaymentOrder = async (userId, payload, orderAddress) => {
 
 export const handleCashfreeWebhook = async (payload, signature) => {
     if (payload.type === "PAYMENT_SUCCESS_WEBHOOK") {
-        await dao.updatePaymentPendingOrder(payload.data.order?.order_id, PaymentStatus.VERIFIED, payload.data.payment_gateway_details?.gateway_payment_id);
+        const orderId = payload.data.order?.order_id;
+        await dao.updatePaymentPendingOrder(orderId, PaymentStatus.VERIFIED, payload.data.payment_gateway_details?.gateway_payment_id);
         try {
-            const paymentRecord = await dao.getPaymentOrderByOrderId(payload.data.order?.order_id);
+            const paymentRecord = await dao.getPaymentOrderByOrderId(orderId);
             if (paymentRecord?.user_id) {
+                const existingOrder = await dao.getOrderById(orderId);
+                if (!existingOrder) {
+                    const activeCart = await dao.getCartItems(paymentRecord.user_id);
+                    if (activeCart && activeCart.length > 0) {
+                        const items = activeCart.map(c => ({
+                            name: c.product_name,
+                            qty: c.quantity,
+                            size: c.size,
+                            total_amount: c.total_amount,
+                            order_id: orderId,
+                            email: paymentRecord.customer_email
+                        }));
+                        await createOrder(paymentRecord.user_id, items);
+                    } else {
+                        await dao.reconcileVerifiedPayments(paymentRecord.user_id);
+                    }
+                }
                 await dao.clearCart(paymentRecord.user_id);
             }
         } catch (e) {
-            console.error("Webhook clear cart error:", e);
+            console.error("Webhook clear cart / order creation error:", e);
         }
     }
 
@@ -372,9 +390,11 @@ export const getOrderTrackingDetails = async (orderId) => {
     const currentRiderLng = restaurantCoords.lng + (userCoords.lng - restaurantCoords.lng) * fraction;
 
     return {
-        orderId: order?._id || orderId || 'demo_order_123',
+        orderId: order?.order_id || order?._id || orderId || 'demo_order_123',
+        order_id: order?.order_id || order?._id || orderId || 'demo_order_123',
         product_name: order?.product_name || 'Food Order',
         total_amount: order?.total_amount || 0,
+        order_amount: order?.total_amount || 0,
         size: order?.size || '',
         quantity: order?.quantity || 1,
         created_at: order?.created_at || new Date(),
