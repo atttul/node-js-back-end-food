@@ -54,7 +54,6 @@ export const updateUserLocation = async (userId, location) => {
 
 export const getActiveOrderForUser = async (userId) => {
     await autoAcceptOverdueOrders();
-    await reconcileVerifiedPayments(userId);
     return await Order.findOne({
         user_id: userId,
         order_status: { $in: ['PLACED', 'PENDING', 'ACCEPTED', 'PREPARING', 'OUT_FOR_DELIVERY'] }
@@ -216,90 +215,9 @@ export const autoAcceptOverdueOrders = async () => {
     }
 };
 
-export const reconcileVerifiedPayments = async (userId) => {
-    try {
-        if (!userId) return;
-        const verifiedPayments = await Payment.find({
-            user_id: userId,
-            status: PaymentStatus.VERIFIED
-        }).sort({ createdAt: -1 });
-
-        for (const payment of verifiedPayments) {
-            const existingOrder = await Order.findOne({ order_id: payment.order_id });
-            if (existingOrder) continue;
-
-            const pTime = payment.createdAt ? payment.createdAt.getTime() : Date.now();
-            let cartItems = await Cart.find({
-                user_id: userId,
-                createdAt: {
-                    $gte: new Date(pTime - 15 * 60 * 1000),
-                    $lte: new Date(pTime + 15 * 60 * 1000)
-                }
-            });
-
-            const targetAmount = Number(payment.order_amount) || 0;
-            let matchedItems = [];
-            let currentSum = 0;
-
-            if (cartItems && cartItems.length > 0) {
-                for (const item of cartItems) {
-                    if (currentSum + (item.total_amount || 0) <= targetAmount) {
-                        matchedItems.push(item);
-                        currentSum += (item.total_amount || 0);
-                    }
-                }
-            }
-
-            if (matchedItems.length === 0) {
-                const fallbackCart = await Cart.find({ user_id: userId }).sort({ _id: -1 }).limit(10);
-                for (const item of fallbackCart) {
-                    if (currentSum + (item.total_amount || 0) <= targetAmount) {
-                        matchedItems.push(item);
-                        currentSum += (item.total_amount || 0);
-                    }
-                }
-            }
-
-            const acceptedAt = payment.createdAt || new Date();
-            const deliveryDeadline = new Date(acceptedAt.getTime() + 30 * 60 * 1000);
-
-            if (matchedItems.length > 0) {
-                for (const item of matchedItems) {
-                    await Order.create({
-                        order_id: payment.order_id,
-                        user_id: userId,
-                        email: payment.customer_email || 'customer@go-food.com',
-                        product_name: item.product_name,
-                        quantity: item.quantity || 1,
-                        size: item.size || 'regular',
-                        total_amount: item.total_amount,
-                        created_at: acceptedAt,
-                        estimated_delivery_minutes: 30,
-                        order_status: 'ACCEPTED',
-                        accepted_at: acceptedAt,
-                        delivery_deadline: deliveryDeadline
-                    });
-                }
-            } else {
-                await Order.create({
-                    order_id: payment.order_id,
-                    user_id: userId,
-                    email: payment.customer_email || 'customer@go-food.com',
-                    product_name: `Delicious Food Order (${payment.order_id})`,
-                    quantity: 1,
-                    size: 'Standard',
-                    total_amount: targetAmount,
-                    created_at: acceptedAt,
-                    estimated_delivery_minutes: 30,
-                    order_status: 'ACCEPTED',
-                    accepted_at: acceptedAt,
-                    delivery_deadline: deliveryDeadline
-                });
-            }
-        }
-    } catch (err) {
-        console.error("Auto reconcile payments error:", err);
-    }
+export const getOrdersByOrderId = async (orderId) => {
+    if (!orderId) return [];
+    return await Order.find({ order_id: orderId });
 };
 
 export const createOrder = async (userId, body, totalPrice) => {
@@ -362,11 +280,7 @@ export const getOrderById = async (orderId) => {
     if (!order) {
         const payment = await Payment.findOne({ order_id: orderId });
         if (payment && payment.user_id) {
-            await reconcileVerifiedPayments(payment.user_id);
-            order = await Order.findOne({ order_id: orderId });
-            if (!order) {
-                order = await Order.findOne({ user_id: payment.user_id }).sort({ created_at: -1 });
-            }
+            order = await Order.findOne({ user_id: payment.user_id }).sort({ created_at: -1 });
         }
     }
     return order;
@@ -382,7 +296,6 @@ export const updateOrderStatus = async (orderId, status) => {
 
 export const getAllOrders = async (userId) => {
     await autoAcceptOverdueOrders();
-    await reconcileVerifiedPayments(userId);
     const allOrders = await Order.find({
         user_id: userId
     }).sort({ created_at: -1 });

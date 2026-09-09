@@ -186,6 +186,17 @@ export const createOrder = async (userId, bodies) => {
     let orders = [];
     const bodiesArray = Array.isArray(bodies) ? bodies : [bodies];
 
+    // Idempotency: If incoming items have an order_id that was already created, prevent duplicate creation!
+    const incomingOrderId = bodiesArray.find(b => b && (b.order_id || b.orderId))?.order_id || bodiesArray.find(b => b && (b.order_id || b.orderId))?.orderId;
+    if (incomingOrderId) {
+        const existingOrders = await dao.getOrdersByOrderId(incomingOrderId);
+        if (existingOrders && existingOrders.length > 0) {
+            console.log(`[createOrder] Order ${incomingOrderId} already created (${existingOrders.length} items). Skipping duplicate creation.`);
+            await dao.clearCart(userId);
+            return existingOrders;
+        }
+    }
+
     let userEmail = '';
     try {
         const user = await dao.getUserById(userId);
@@ -298,8 +309,8 @@ export const handleCashfreeWebhook = async (payload, signature) => {
         try {
             const paymentRecord = await dao.getPaymentOrderByOrderId(orderId);
             if (paymentRecord?.user_id) {
-                const existingOrder = await dao.getOrderById(orderId);
-                if (!existingOrder) {
+                const existing = await dao.getOrdersByOrderId(orderId);
+                if (!existing || existing.length === 0) {
                     const activeCart = await dao.getCartItems(paymentRecord.user_id);
                     if (activeCart && activeCart.length > 0) {
                         const items = activeCart.map(c => ({
@@ -311,8 +322,6 @@ export const handleCashfreeWebhook = async (payload, signature) => {
                             email: paymentRecord.customer_email
                         }));
                         await createOrder(paymentRecord.user_id, items);
-                    } else {
-                        await dao.reconcileVerifiedPayments(paymentRecord.user_id);
                     }
                 }
                 await dao.clearCart(paymentRecord.user_id);
